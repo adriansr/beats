@@ -222,7 +222,9 @@ func (ms *MetricSet) initClient() error {
 	if err := ms.client.SetPID(libaudit.NoWait); err != nil {
 		return errors.Wrap(err, "failed to set audit PID")
 	}
-
+	if err := ms.client.WaitForPendingAcks(); err != nil {
+		return errors.Wrap(err, "failed to wait for ACKs")
+	}
 	return nil
 }
 
