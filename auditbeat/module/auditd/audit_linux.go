@@ -255,7 +255,7 @@ func (ms *MetricSet) receiveEvents(done <-chan struct{}) (<-chan []*auparse.Audi
 			}
 
 			if err := reassembler.Push(raw.Type, raw.Data); err != nil {
-				debugf("dropping message record_type=%v message='%v': ",
+				debugf("dropping message record_type=%v message='%v': %v",
 					raw.Type, string(raw.Data), err)
 				continue
 			}
