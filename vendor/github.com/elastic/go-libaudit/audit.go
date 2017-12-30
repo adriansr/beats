@@ -377,6 +377,7 @@ func (c *AuditClient) Close() error {
 // executed with a WaitMode of NoWait. Such ACK messages are expected in the
 // same order as the operations have been performed. If it receives an error,
 // it is returned and no further ACKs are processed.
+// TODO: Rename WaitForPendingOps ?
 func (c *AuditClient) WaitForPendingAcks() error {
 	for _, reqId := range c.pendingAcks {
 		ack, err := c.getReply(reqId)
