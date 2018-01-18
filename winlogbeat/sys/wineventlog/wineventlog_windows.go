@@ -186,7 +186,7 @@ func RenderEvent(
 			return err
 		}
 
-		err = RenderEventXML(eventHandle, renderBuf, out)
+		err = RenderEventXML(eventHandle, EvtRenderEventXml, renderBuf, out)
 	}
 
 	return err
@@ -197,9 +197,9 @@ func RenderEvent(
 // include the RenderingInfo (message). If the event is not rendered then the
 // XML will not include the message, and in this case RenderEvent should be
 // used.
-func RenderEventXML(eventHandle EvtHandle, renderBuf []byte, out io.Writer) error {
+func RenderEventXML(eventHandle EvtHandle, flag EvtRenderFlag, renderBuf []byte, out io.Writer) error {
 	var bufferUsed, propertyCount uint32
-	err := _EvtRender(0, eventHandle, EvtRenderEventXml, uint32(len(renderBuf)),
+	err := _EvtRender(0, eventHandle, flag, uint32(len(renderBuf)),
 		&renderBuf[0], &bufferUsed, &propertyCount)
 	if err == ERROR_INSUFFICIENT_BUFFER {
 		return sys.InsufficientBufferError{err, int(bufferUsed)}
@@ -216,9 +216,9 @@ func RenderEventXML(eventHandle EvtHandle, renderBuf []byte, out io.Writer) erro
 	return sys.UTF16ToUTF8Bytes(renderBuf[:bufferUsed], out)
 }
 
-// CreateBookmark creates a new handle to a bookmark. Close must be called on
+// CreateBookmarkFromRecordID creates a new handle to a bookmark. Close must be called on
 // returned EvtHandle when finished with the handle.
-func CreateBookmark(channel string, recordID uint64) (EvtHandle, error) {
+func CreateBookmarkFromRecordID(channel string, recordID uint64) (EvtHandle, error) {
 	xml := fmt.Sprintf(bookmarkTemplate, channel, recordID)
 	p, err := syscall.UTF16PtrFromString(xml)
 	if err != nil {
@@ -230,6 +230,19 @@ func CreateBookmark(channel string, recordID uint64) (EvtHandle, error) {
 		return 0, err
 	}
 
+	return h, nil
+}
+
+// CreateBookmarkFromEvent creates a new handle to a bookmark. Close must be called on
+// returned EvtHandle when finished with the handle.
+func CreateBookmarkFromEvent(handle EvtHandle) (EvtHandle, error) {
+	h, err := _EvtCreateBookmark(nil)
+	if err != nil {
+		return 0, err
+	}
+	if err = _EvtUpdateBookmark(h, handle); err != nil {
+		return 0, err
+	}
 	return h, nil
 }
 

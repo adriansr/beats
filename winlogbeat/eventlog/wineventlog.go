@@ -90,7 +90,7 @@ func (l *winEventLog) Name() string {
 }
 
 func (l *winEventLog) Open(recordNumber uint64) error {
-	bookmark, err := win.CreateBookmark(l.channelName, recordNumber)
+	bookmark, err := win.CreateBookmarkFromRecordID(l.channelName, recordNumber)
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func newWinEventLog(options *common.Config) (EventLog, error) {
 	case c.Forwarded == nil && c.Name == "ForwardedEvents",
 		c.Forwarded != nil && *c.Forwarded == true:
 		l.render = func(event win.EvtHandle, out io.Writer) error {
-			return win.RenderEventXML(event, l.renderBuf, out)
+			return win.RenderEventXML(event, win.EvtRenderEventXml, l.renderBuf, out)
 		}
 	default:
 		l.render = func(event win.EvtHandle, out io.Writer) error {
@@ -298,6 +298,17 @@ func newWinEventLog(options *common.Config) (EventLog, error) {
 	}
 
 	return l, nil
+}
+
+func (l *winEventLog) createBookmarkFromEvent(evtHandle win.EvtHandle) ([]byte, error) {
+	bmHandle, err := win.CreateBookmarkFromEvent(evtHandle)
+	if err != nil {
+		return nil, err
+	}
+	l.outputBuf.Reset()
+	err = win.RenderEventXML(bmHandle, win.EvtRenderBookmark, l.renderBuf, l.outputBuf)
+	win.Close(bmHandle)
+	return l.outputBuf.Bytes(), err
 }
 
 func init() {
