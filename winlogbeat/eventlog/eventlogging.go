@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/elastic/beats/winlogbeat/checkpoint"
 	"github.com/joeshaw/multierror"
 
 	"github.com/elastic/beats/libbeat/common"
@@ -76,10 +77,11 @@ func (l eventLogging) Name() string {
 	return l.name
 }
 
-func (l *eventLogging) Open(recordNumber uint64) error {
+func (l *eventLogging) Open(state checkpoint.EventLogState) error {
+	// TODO: l.name here??
 	detailf("%s Open(recordNumber=%d) calling OpenEventLog(uncServerPath=, "+
-		"providerName=%s)", l.logPrefix, recordNumber, l.name)
-	handle, err := win.OpenEventLog("", l.name)
+		"providerName=%s)", l.logPrefix, state.RecordNumber, state.Name)
+	handle, err := win.OpenEventLog("", state.Name)
 	if err != nil {
 		return err
 	}
@@ -91,7 +93,7 @@ func (l *eventLogging) Open(recordNumber uint64) error {
 
 	var oldestRecord, newestRecord uint32
 	if numRecords > 0 {
-		l.recordNumber = uint32(recordNumber)
+		l.recordNumber = uint32(state.RecordNumber)
 		l.seek = true
 		l.ignoreFirst = true
 
@@ -208,7 +210,10 @@ func (l *eventLogging) readRetryErrorHandler(err error) error {
 
 		if reopen {
 			l.Close()
-			return l.Open(uint64(l.recordNumber))
+			return l.Open(checkpoint.EventLogState{
+				Name:         l.name, // TODO check
+				RecordNumber: uint64(l.recordNumber),
+			})
 		}
 	}
 	return err

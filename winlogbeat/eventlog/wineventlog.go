@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/elastic/beats/winlogbeat/checkpoint"
 	"github.com/joeshaw/multierror"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
@@ -71,10 +72,10 @@ var _ EventLog = &winEventLog{}
 type winEventLog struct {
 	config       winEventLogConfig
 	query        string
-	channelName  string        // Name of the channel from which to read.
-	subscription win.EvtHandle // Handle to the subscription.
-	maxRead      int           // Maximum number returned in one Read.
-	lastRead     uint64        // Record number of the last read event.
+	channelName  string                   // Name of the channel from which to read.
+	subscription win.EvtHandle            // Handle to the subscription.
+	maxRead      int                      // Maximum number returned in one Read.
+	lastRead     checkpoint.EventLogState // Record number of the last read event.
 
 	render    func(event win.EvtHandle, out io.Writer) error // Function for rendering the event to XML.
 	renderBuf []byte                                         // Buffer used for rendering event.
@@ -89,10 +90,17 @@ func (l *winEventLog) Name() string {
 	return l.channelName
 }
 
-func (l *winEventLog) Open(recordNumber uint64) error {
-	bookmark, err := win.CreateBookmarkFromRecordID(l.channelName, recordNumber)
-	if err != nil {
-		return err
+func (l *winEventLog) Open(state checkpoint.EventLogState) error {
+	var bookmark win.EvtHandle
+	var err error
+	if len(state.Bookmark) > 0 {
+		bookmark, err = win.CreateBookmarkFromXml(state.Bookmark)
+	} else {
+		// TODO: check use of state.Name instead of l.channelName
+		bookmark, err = win.CreateBookmarkFromRecordID(state.Name, state.RecordNumber)
+		if err != nil {
+			return err
+		}
 	}
 	defer win.Close(bookmark)
 
@@ -154,8 +162,17 @@ func (l *winEventLog) Read() ([]Record, error) {
 			incrementMetric(dropReasons, err)
 			continue
 		}
+
+		if r.Bookmark, err = l.createBookmarkFromEvent(h); err != nil {
+			logp.Warn("%s failed creating bookmark: %v", l.logPrefix, err)
+		}
+
 		records = append(records, r)
-		l.lastRead = r.RecordID
+		l.lastRead = checkpoint.EventLogState{
+			Name:         l.channelName,
+			RecordNumber: r.RecordID,
+			Bookmark:     r.Bookmark,
+		}
 	}
 
 	debugf("%s Read() is returning %d records", l.logPrefix, len(records))

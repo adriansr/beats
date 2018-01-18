@@ -246,6 +246,16 @@ func CreateBookmarkFromEvent(handle EvtHandle) (EvtHandle, error) {
 	return h, nil
 }
 
+// CreateBookmarkFromEvent creates a new handle to a bookmark. Close must be called on
+// returned EvtHandle when finished with the handle.
+func CreateBookmarkFromXml(bookmarkXml string) (EvtHandle, error) {
+	xml, err := syscall.UTF16PtrFromString(bookmarkXml)
+	if err != nil {
+		return 0, err
+	}
+	return _EvtCreateBookmark(xml)
+}
+
 // CreateRenderContext creates a render context. Close must be called on
 // returned EvtHandle when finished with the handle.
 func CreateRenderContext(valuePaths []string, flag EvtRenderContextFlag) (EvtHandle, error) {

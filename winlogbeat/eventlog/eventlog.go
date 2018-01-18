@@ -41,7 +41,7 @@ type EventLog interface {
 	// Open the event log. recordNumber is the last successfully read event log
 	// record number. Read will resume from recordNumber + 1. To start reading
 	// from the first event specify a recordNumber of 0.
-	Open(recordNumber uint64) error
+	Open(state checkpoint.EventLogState) error
 
 	// Read records from the event log.
 	Read() ([]Record, error)
@@ -56,8 +56,9 @@ type EventLog interface {
 // Record represents a single event from the log.
 type Record struct {
 	sys.Event
-	API string // The event log API type used to read the record.
-	XML string // XML representation of the event.
+	API      string // The event log API type used to read the record.
+	XML      string // XML representation of the event.
+	Bookmark string // The event bookmark in XML format.
 }
 
 // ToMapStr returns a new MapStr containing the data from this Record.
@@ -116,6 +117,7 @@ func (e Record) ToEvent() beat.Event {
 			Name:         e.Channel,
 			RecordNumber: e.RecordID,
 			Timestamp:    e.TimeCreated.SystemTime,
+			Bookmark:     e.Bookmark,
 		},
 	}
 }
