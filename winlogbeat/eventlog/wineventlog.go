@@ -300,15 +300,15 @@ func newWinEventLog(options *common.Config) (EventLog, error) {
 	return l, nil
 }
 
-func (l *winEventLog) createBookmarkFromEvent(evtHandle win.EvtHandle) ([]byte, error) {
+func (l *winEventLog) createBookmarkFromEvent(evtHandle win.EvtHandle) (string, error) {
 	bmHandle, err := win.CreateBookmarkFromEvent(evtHandle)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	l.outputBuf.Reset()
 	err = win.RenderEventXML(bmHandle, win.EvtRenderBookmark, l.renderBuf, l.outputBuf)
 	win.Close(bmHandle)
-	return l.outputBuf.Bytes(), err
+	return string(l.outputBuf.Bytes()), err
 }
 
 func init() {
