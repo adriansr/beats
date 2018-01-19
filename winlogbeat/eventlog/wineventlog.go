@@ -166,10 +166,9 @@ func (l *winEventLog) Read() ([]Record, error) {
 		if r.Bookmark, err = l.createBookmarkFromEvent(h); err != nil {
 			logp.Warn("%s failed creating bookmark: %v", l.logPrefix, err)
 		}
-
 		records = append(records, r)
 		l.lastRead = checkpoint.EventLogState{
-			Name:         l.channelName,
+			Name:         l.channelName, // TODO: r.something ?
 			RecordNumber: r.RecordID,
 			Bookmark:     r.Bookmark,
 		}
