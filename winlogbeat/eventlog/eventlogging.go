@@ -171,6 +171,11 @@ func (l *eventLogging) Read() ([]Record, error) {
 		records = append(records, Record{
 			API:   eventLoggingAPIName,
 			Event: e,
+			Offset: checkpoint.EventLogState{
+				Name:         l.name,
+				RecordNumber: e.RecordID,
+				Timestamp:    e.TimeCreated.SystemTime,
+			},
 		})
 	}
 

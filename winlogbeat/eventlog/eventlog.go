@@ -56,9 +56,9 @@ type EventLog interface {
 // Record represents a single event from the log.
 type Record struct {
 	sys.Event
-	API      string // The event log API type used to read the record.
-	XML      string // XML representation of the event.
-	Bookmark string // The event bookmark in XML format.
+	API    string                   // The event log API type used to read the record.
+	XML    string                   // XML representation of the event.
+	Offset checkpoint.EventLogState // TODO
 }
 
 // ToMapStr returns a new MapStr containing the data from this Record.
@@ -113,12 +113,7 @@ func (e Record) ToEvent() beat.Event {
 	return beat.Event{
 		Timestamp: e.TimeCreated.SystemTime,
 		Fields:    m,
-		Private: checkpoint.EventLogState{
-			Name:         e.Channel,
-			RecordNumber: e.RecordID,
-			Timestamp:    e.TimeCreated.SystemTime,
-			Bookmark:     e.Bookmark,
-		},
+		Private:   e.Offset,
 	}
 }
 

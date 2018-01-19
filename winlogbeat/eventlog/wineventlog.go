@@ -163,15 +163,16 @@ func (l *winEventLog) Read() ([]Record, error) {
 			continue
 		}
 
-		if r.Bookmark, err = l.createBookmarkFromEvent(h); err != nil {
+		r.Offset = checkpoint.EventLogState{
+			Name:         l.channelName,
+			RecordNumber: r.RecordID,
+			Timestamp:    r.TimeCreated.SystemTime,
+		}
+		if r.Offset.Bookmark, err = l.createBookmarkFromEvent(h); err != nil {
 			logp.Warn("%s failed creating bookmark: %v", l.logPrefix, err)
 		}
 		records = append(records, r)
-		l.lastRead = checkpoint.EventLogState{
-			Name:         l.channelName, // TODO: r.something ?
-			RecordNumber: r.RecordID,
-			Bookmark:     r.Bookmark,
-		}
+		l.lastRead = r.Offset
 	}
 
 	debugf("%s Read() is returning %d records", l.logPrefix, len(records))
