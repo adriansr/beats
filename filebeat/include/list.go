@@ -28,6 +28,7 @@ package include
 import (
 	_ "github.com/elastic/beats/filebeat/input/docker"
 	_ "github.com/elastic/beats/filebeat/input/log"
+	_ "github.com/elastic/beats/filebeat/input/netflow"
 	_ "github.com/elastic/beats/filebeat/input/redis"
 	_ "github.com/elastic/beats/filebeat/input/stdin"
 	_ "github.com/elastic/beats/filebeat/input/syslog"
