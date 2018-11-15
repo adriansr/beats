@@ -7,16 +7,17 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
-	"github.com/elastic/beats/filebeat/inputsource"
 	"github.com/elastic/beats/libbeat/common/atomic"
 	"github.com/elastic/beats/libbeat/logp"
 )
 
 const (
 	ProtocolName                = "v9"
+	LogSelector                 = "netflow-v9"
 	NetflowV9ProtocolID  uint16 = 9
 	TemplateFlowSetID           = 0
 	TemplateOptionsSetID        = 1
@@ -43,28 +44,24 @@ func New() registry.Protocol {
 		id:      id.Inc(),
 		session: NewSessionMap(),
 	}
-	proto.logger = logp.NewLogger(proto.String())
+	proto.logger = logp.NewLogger(LogSelector)
 	return proto
-}
-
-func (p *NetflowV9Protocol) String() string {
-	return fmt.Sprintf("netflowv9-%d", p.id)
 }
 
 func (_ NetflowV9Protocol) ID() uint16 {
 	return NetflowV9ProtocolID
 }
 
-func (p *NetflowV9Protocol) OnPacket(data []byte, metadata inputsource.NetworkMetadata) (flows []flow.Flow) {
+func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
 	buf := bytes.NewBuffer(data)
 	header, err := ReadPacketHeader(buf)
 	if err != nil {
 		p.logger.Errorf("Unable to read V9 header: %v", err)
 		return nil
 	}
-	p.logger.Debugf("Received %d bytes from %s: %+v", len(data), metadata.RemoteAddr.String(), header)
+	p.logger.Debugf("Received %d bytes from %s: %+v", len(data), source, header)
 
-	session := p.session.Lookup(MakeSessionKey(metadata.RemoteAddr, header.SourceID))
+	session := p.session.GetOrCreate(MakeSessionKey(source, header.SourceID))
 
 	for {
 		set, err := ReadSetHeader(buf)
@@ -72,7 +69,7 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, metadata inputsource.NetworkMe
 			break
 		}
 		if buf.Len() < set.BodyLength() {
-			p.logger.Warnf("set %+v overflows packet", set)
+			p.logger.Warnf("set %+v overflows packet from %s", set, source)
 			break
 		}
 		body := bytes.NewBuffer(buf.Next(set.BodyLength()))
@@ -93,16 +90,23 @@ func (p *NetflowV9Protocol) parseSet(
 	setId uint16,
 	session *SessionState,
 	buf *bytes.Buffer) ([]flow.Flow, error) {
+
 	switch setId {
 	case TemplateFlowSetID:
-		var err error
 		template, err := readTemplateFlowSet(buf)
 		if err != nil {
 			return nil, err
 		}
 		if pending := session.AddTemplate(template); len(pending) > 0 {
-			// TODO
-			p.logger.Warnf("Got %d pending records", len(pending))
+			var flows []flow.Flow
+			for _, savedRecord := range pending {
+				f, err := template.Apply(header, bytes.NewBuffer(savedRecord))
+				if err != nil {
+					return nil, err
+				}
+				flows = append(flows, f...)
+			}
+			return flows, nil
 		}
 
 	case TemplateOptionsSetID:
@@ -111,11 +115,8 @@ func (p *NetflowV9Protocol) parseSet(
 		if setId < 256 {
 			return nil, fmt.Errorf("set id %d not supported", setId)
 		}
-		// TODO: Make concurrent
-		if template := session.GetTemplate(setId); template != nil {
+		if template := session.GetTemplate(setId, buf.Bytes()); template != nil {
 			return template.Apply(header, buf)
-		} else {
-			session.StorePending(setId, buf.Bytes())
 		}
 	}
 	return nil, nil

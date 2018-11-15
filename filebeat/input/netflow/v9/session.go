@@ -6,17 +6,16 @@ import (
 	"sync"
 )
 
+type SessionKey string
+
+func MakeSessionKey(addr net.Addr, sourceID uint32) SessionKey {
+	return SessionKey(fmt.Sprintf("%s:%d", addr, sourceID))
+}
+
 type SessionState struct {
 	sync.RWMutex
 	Templates      map[uint16]Template
 	PendingRecords map[uint16][][]byte
-}
-
-type SessionKey string
-
-type SessionMap struct {
-	sync.Mutex
-	sessions map[SessionKey]*SessionState
 }
 
 func NewSession() *SessionState {
@@ -24,23 +23,6 @@ func NewSession() *SessionState {
 		Templates:      make(map[uint16]Template),
 		PendingRecords: make(map[uint16][][]byte),
 	}
-}
-
-func NewSessionMap() SessionMap {
-	return SessionMap{
-		sessions: make(map[SessionKey]*SessionState),
-	}
-}
-
-func (m *SessionMap) Lookup(key SessionKey) *SessionState {
-	m.Lock()
-	defer m.Unlock()
-	session, found := m.sessions[key]
-	if !found {
-		session = NewSession()
-		m.sessions[key] = session
-	}
-	return session
 }
 
 func (s *SessionState) AddTemplate(t Template) [][]byte {
@@ -55,21 +37,43 @@ func (s *SessionState) AddTemplate(t Template) [][]byte {
 	return nil
 }
 
-func (s *SessionState) GetTemplate(id uint16) Template {
+func (s *SessionState) GetTemplate(id uint16, rawRecords []byte) Template {
 	s.RLock()
-	defer s.RUnlock()
-	if template, found := s.Templates[id]; found {
-		return template
+	template, found := s.Templates[id]
+	s.RUnlock()
+	if !found {
+		s.Lock()
+		template, found = s.Templates[id]
+		if !found {
+			s.PendingRecords[id] = append(s.PendingRecords[id], rawRecords)
+		}
+		s.Unlock()
 	}
-	return nil
+	return template
 }
 
-func (s *SessionState) StorePending(id uint16, set []byte) {
-	s.Lock()
-	defer s.Unlock()
-	s.PendingRecords[id] = append(s.PendingRecords[id], set)
+type SessionMap struct {
+	sync.RWMutex
+	sessions map[SessionKey]*SessionState
 }
 
-func MakeSessionKey(addr net.Addr, sourceID uint32) SessionKey {
-	return SessionKey(fmt.Sprintf("%s:%d", addr, sourceID))
+func NewSessionMap() SessionMap {
+	return SessionMap{
+		sessions: make(map[SessionKey]*SessionState),
+	}
+}
+
+func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
+	m.RLock()
+	session, found := m.sessions[key]
+	m.RUnlock()
+	if !found {
+		m.Lock()
+		if session, found = m.sessions[key]; !found {
+			session = NewSession()
+			m.sessions[key] = session
+		}
+		m.Unlock()
+	}
+	return session
 }

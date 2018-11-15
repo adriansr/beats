@@ -8,6 +8,7 @@ import (
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
 
@@ -63,11 +64,15 @@ func (t *RecordTemplate) ApplyOne(header PacketHeader, data *bytes.Buffer) (ev f
 	if err != nil || n < int(t.TotalLength) {
 		return ev, ErrNoData
 	}
-	ev = flow.Flow{}
+	ev = flow.Flow{
+		// TODO: Time of reception for stored flow records
+		Timestamp: time.Now(),
+		Fields:    common.MapStr{},
+	}
 	pos := 0
 	for _, field := range t.Fields {
 		if fieldInfo := field.Info; fieldInfo != nil {
-			if ev[fieldInfo.Name], err = fieldInfo.Decoder.Decode(buf[pos : pos+int(field.Length)]); err != nil {
+			if ev.Fields[fieldInfo.Name], err = fieldInfo.Decoder.Decode(buf[pos : pos+int(field.Length)]); err != nil {
 				logp.Warn("Unable to decode field '%s' in template %d", fieldInfo.Name, t.ID)
 			}
 		}

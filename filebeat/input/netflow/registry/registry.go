@@ -4,10 +4,10 @@ package registry
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
-	"github.com/elastic/beats/filebeat/inputsource"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 
 type Protocol interface {
 	ID() uint16
-	OnPacket(data []byte, metadata inputsource.NetworkMetadata) []flow.Flow
+	OnPacket(data []byte, source net.Addr) []flow.Flow
 }
 
 type Generator func() Protocol

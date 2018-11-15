@@ -1,3 +1,12 @@
 package flow
 
-type Flow map[string]interface{}
+import (
+	"time"
+
+	"github.com/elastic/beats/libbeat/common"
+)
+
+type Flow struct {
+	Timestamp time.Time
+	Fields    common.MapStr
+}

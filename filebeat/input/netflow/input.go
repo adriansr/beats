@@ -4,6 +4,7 @@ package netflow
 
 import (
 	"encoding/binary"
+	"net"
 	"sync"
 	"time"
 
@@ -32,8 +33,8 @@ var (
 )
 
 type Packet struct {
-	data     []byte
-	metadata inputsource.NetworkMetadata
+	data   []byte
+	source net.Addr
 }
 
 // Input TODO
@@ -124,7 +125,7 @@ func (p *Input) Run() {
 			}
 		}()
 		for i := 0; i < N; i++ {
-			go p.recv()
+			go p.recvRoutine()
 		}
 		err := p.udp.Start()
 		if err != nil {
@@ -152,34 +153,32 @@ func (p *Input) Wait() {
 }
 
 func (p *Input) packetDispatch(data []byte, metadata inputsource.NetworkMetadata) {
-	p.C <- Packet{data, metadata}
+	p.C <- Packet{data, metadata.RemoteAddr}
 	Packets.Inc()
 }
 
-func (p *Input) recv() {
+func (p *Input) recvRoutine() {
 	for packet := range p.C {
-		if len(packet.data) < 2 {
+		if len(packet.data) < 4 {
 			logger.Warn("received packet too small")
 			return
 		}
 		version := binary.BigEndian.Uint16(packet.data)
-		//logger.Infof("Received packet from %s size %d : version %d",
-		//	metadata.RemoteAddr, len(data), version)
 
 		handler, exists := p.protos[version]
 		if !exists {
 			logger.Warnf("Ignoring packet from version %d", version)
 			return
 		}
-		flows := handler.OnPacket(packet.data, packet.metadata)
+		flows := handler.OnPacket(packet.data, packet.source)
 		if n := len(flows); n > 0 {
 			evs := make([]beat.Event, n)
 			Flows.Add(n)
 			for i, flow := range flows {
 				evs[i] = beat.Event{
-					Timestamp: time.Now(),
+					Timestamp: flow.Timestamp,
 					Fields: common.MapStr{
-						"netflow": flow,
+						"netflow": flow.Fields,
 					},
 				}
 			}
