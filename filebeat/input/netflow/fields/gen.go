@@ -64,7 +64,7 @@ func main() {
 	defer outHandle.Close()
 
 	write(outHandle, fileHeader)
-	write(outHandle, fmt.Sprintf("var %s = map[FieldKey]Field {\n", *name))
+	write(outHandle, fmt.Sprintf("var %s = map[Key]*Field {\n", *name))
 
 	reader := csv.NewReader(fHandle)
 	for lineNum := 1; ; lineNum++ {
@@ -85,6 +85,7 @@ func main() {
 		}
 		idS, name, dataType := record[0], record[1], record[2]
 		if len(dataType) == 0 {
+			write(outHandle, fmt.Sprintf("\t// Field %s: %s\n", idS, name))
 			continue
 		}
 		id, err := strconv.Atoi(idS)
@@ -92,7 +93,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "read of %s failed: field ID '%s' is not convertible to an integer\n", csvFile, idS)
 			os.Exit(3)
 		}
-		write(outHandle, fmt.Sprintf("\tFieldKey{FieldID:%d}: {Key:FieldKey{FieldID:%d}, Name: \"%s\", Decoder: %s},\n",
+		write(outHandle, fmt.Sprintf("\tKey{FieldID:%d}: {Key: Key{FieldID:%d}, Name: \"%s\", Decoder: %s},\n",
 			id, id, name, strings.Title(dataType)))
 	}
 	write(outHandle, "}\n")

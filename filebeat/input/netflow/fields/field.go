@@ -1,12 +1,12 @@
 package fields
 
-type FieldKey struct {
+type Key struct {
 	EnterpriseID uint32
 	FieldID      uint16
 }
 
 type Field struct {
-	Key     FieldKey
+	Key
 	Name    string
 	Decoder Decoder
 }

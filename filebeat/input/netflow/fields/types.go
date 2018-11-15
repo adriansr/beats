@@ -14,6 +14,7 @@ var (
 
 	ErrNoData      = errors.New("no data to decode")
 	ErrOutOfBounds = errors.New("excess bytes for decoding")
+	ErrUnsupported = errors.New("unsupported data type")
 )
 
 type Decoder interface {
@@ -302,6 +303,22 @@ func (u IPAddressDecoder) Decode(data []byte) (interface{}, error) {
 
 var _ Decoder = (*IPAddressDecoder)(nil)
 
+type UnsupportedDecoder struct{}
+
+func (u UnsupportedDecoder) MinLength() uint16 {
+	return 0
+}
+
+func (u UnsupportedDecoder) MaxLength() uint16 {
+	return math.MaxUint16
+}
+
+func (u UnsupportedDecoder) Decode(data []byte) (interface{}, error) {
+	return nil, ErrUnsupported
+}
+
+var _ Decoder = (*UnsupportedDecoder)(nil)
+
 // RFC5610 fields
 var (
 	OctetArray           = OctetArrayDecoder{}
@@ -324,7 +341,7 @@ var (
 	DateTimeNanoseconds  = NTPTimestampDecoder{}
 	Ipv4Address          = IPAddressDecoder(4)
 	Ipv6Address          = IPAddressDecoder(16)
-	// BasicList
-	// SubTemplateList
-	// SubTemplateMultiList
+	BasicList            = UnsupportedDecoder{}
+	SubTemplateList      = UnsupportedDecoder{}
+	SubTemplateMultiList = UnsupportedDecoder{}
 )

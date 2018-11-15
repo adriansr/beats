@@ -1063,3 +1063,18 @@ func TestIPv6(t *testing.T) {
 		},
 	})
 }
+
+func TestUnsupported(t *testing.T) {
+	doTest(t, BasicList, 0, math.MaxUint16, []testCase{
+		{
+			title: "Empty",
+			bytes: []byte{},
+			err:   true,
+		},
+		{
+			title: "Any",
+			bytes: make([]byte, 15),
+			err:   true,
+		},
+	})
+}
