@@ -31,7 +31,7 @@ func (s *SessionState) AddTemplate(t Template) [][]byte {
 	id := t.TemplateID()
 	s.Templates[id] = t
 	if pending, found := s.PendingRecords[id]; found {
-		s.PendingRecords[id] = nil
+		delete(s.PendingRecords, id)
 		return pending
 	}
 	return nil

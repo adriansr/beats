@@ -89,16 +89,33 @@ func (p *NetflowV9Protocol) parseSet(
 	header PacketHeader,
 	setId uint16,
 	session *SessionState,
-	buf *bytes.Buffer) ([]flow.Flow, error) {
+	buf *bytes.Buffer) (flows []flow.Flow, err error) {
 
+	if setId >= 256 {
+		// Flow of Options record, lookup template and generate flows
+		// or store the record to generate the flows when a template
+		// becomes available
+		if template := session.GetTemplate(setId, buf.Bytes()); template != nil {
+			return template.Apply(header, buf)
+		}
+		return nil, nil
+	}
+
+	// Template sets
+	var templates []Template
 	switch setId {
 	case TemplateFlowSetID:
-		template, err := readTemplateFlowSet(buf)
-		if err != nil {
-			return nil, err
-		}
+		templates, err = readTemplateFlowSet(buf)
+	case TemplateOptionsSetID:
+		templates, err = readOptionsTemplateFlowSet(buf)
+	default:
+		err = fmt.Errorf("set id %d not supported", setId)
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, template := range templates {
 		if pending := session.AddTemplate(template); len(pending) > 0 {
-			var flows []flow.Flow
 			for _, savedRecord := range pending {
 				f, err := template.Apply(header, bytes.NewBuffer(savedRecord))
 				if err != nil {
@@ -106,20 +123,9 @@ func (p *NetflowV9Protocol) parseSet(
 				}
 				flows = append(flows, f...)
 			}
-			return flows, nil
-		}
-
-	case TemplateOptionsSetID:
-		// TODO
-	default:
-		if setId < 256 {
-			return nil, fmt.Errorf("set id %d not supported", setId)
-		}
-		if template := session.GetTemplate(setId, buf.Bytes()); template != nil {
-			return template.Apply(header, buf)
 		}
 	}
-	return nil, nil
+	return flows, nil
 }
 
 type PacketHeader struct {
