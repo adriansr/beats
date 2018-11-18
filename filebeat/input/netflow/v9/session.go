@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
+
+	"github.com/elastic/beats/libbeat/common/atomic"
 )
 
 type SessionKey string
@@ -16,12 +19,14 @@ type SessionState struct {
 	sync.RWMutex
 	Templates      map[uint16]Template
 	PendingRecords map[uint16][][]byte
+	Used           atomic.Bool
 }
 
 func NewSession() *SessionState {
 	return &SessionState{
 		Templates:      make(map[uint16]Template),
 		PendingRecords: make(map[uint16][][]byte),
+		Used:           atomic.MakeBool(true),
 	}
 }
 
@@ -66,6 +71,9 @@ func NewSessionMap() SessionMap {
 func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 	m.RLock()
 	session, found := m.sessions[key]
+	if found {
+		session.Used.Store(true)
+	}
 	m.RUnlock()
 	if !found {
 		m.Lock()
@@ -76,4 +84,39 @@ func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 		m.Unlock()
 	}
 	return session
+}
+
+func (m *SessionMap) Cleanup() {
+	var toDelete []SessionKey
+	m.RLock()
+	for key, session := range m.sessions {
+		if !session.Used.Swap(false) {
+			toDelete = append(toDelete, key)
+		}
+	}
+	m.RUnlock()
+	if len(toDelete) > 0 {
+		m.Lock()
+		for _, key := range toDelete {
+			if session, found := m.sessions[key]; found && !session.Used.Load() {
+				delete(m.sessions, key)
+			}
+		}
+		m.Unlock()
+	}
+}
+
+func (m *SessionMap) CleanupLoop(interval time.Duration, done <-chan struct{}) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+
+		case <-t.C:
+			m.Cleanup()
+		}
+	}
 }

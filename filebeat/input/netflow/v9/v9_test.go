@@ -163,7 +163,6 @@ func TestOptionTemplates(t *testing.T) {
 
 		v9proto, ok := proto.(*NetflowV9Protocol)
 		assert.True(t, ok)
-		t.Logf("raw: %s", hex.EncodeToString(raw))
 		assert.Len(t, v9proto.session.sessions, 1)
 		s, found := v9proto.session.sessions[key]
 		assert.True(t, found)
