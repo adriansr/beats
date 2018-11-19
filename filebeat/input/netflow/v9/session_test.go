@@ -110,55 +110,29 @@ func TestSessionState(t *testing.T) {
 		s := NewSession()
 		baseTime := time.Now()
 		t1 := testTemplate(1, baseTime)
-		data := s.AddTemplate(t1)
-		assert.Nil(t, data)
-
-		t2 := s.GetTemplate(1, make([]byte, 1))
+		s.AddTemplate(t1)
+		t2 := s.GetTemplate(1)
 		assert.True(t, t1 == t2)
-	})
-	t.Run("get and create", func(t *testing.T) {
-		s := NewSession()
-		template := testTemplate(1, time.Now())
-		data1 := []byte("hello")
-		data2 := []byte("world!")
-		noT := s.GetTemplate(1, data1)
-		assert.Nil(t, noT)
-
-		noT = s.GetTemplate(1, data2)
-		assert.Nil(t, noT)
-
-		stored := s.AddTemplate(template)
-		if !assert.Len(t, stored, 2) {
-			return
-		}
-		assert.Equal(t, data1, stored[0])
-		assert.Equal(t, data2, stored[1])
-
-		stored = s.AddTemplate(template)
-		assert.Nil(t, stored)
 	})
 	t.Run("update", func(t *testing.T) {
 		s := NewSession()
 		baseTime := time.Now()
 		t1 := testTemplate(1, baseTime)
-		data := s.AddTemplate(t1)
-		assert.Nil(t, data)
+		s.AddTemplate(t1)
 
 		t2 := testTemplate(2, baseTime)
-		data = s.AddTemplate(t2)
-		assert.Nil(t, data)
+		s.AddTemplate(t2)
 
-		t1c := s.GetTemplate(1, nil)
+		t1c := s.GetTemplate(1)
 		assert.True(t, t1 == t1c)
 
-		t2c := s.GetTemplate(2, nil)
+		t2c := s.GetTemplate(2)
 		assert.True(t, t2 == t2c)
 
 		t1b := testTemplate(1, baseTime.Add(time.Hour))
-		data = s.AddTemplate(t1b)
-		assert.Nil(t, data)
+		s.AddTemplate(t1b)
 
-		t1c = s.GetTemplate(1, nil)
+		t1c = s.GetTemplate(1)
 		assert.False(t, t1 == t1c)
 		assert.True(t, t1b == t1b)
 	})

@@ -108,9 +108,7 @@ func (p *NetflowV9Protocol) parseSet(
 
 	if setId >= 256 {
 		// Flow of Options record, lookup template and generate flows
-		// or store the record to generate the flows when a template
-		// becomes available
-		if template := session.GetTemplate(setId, buf.Bytes()); template != nil {
+		if template := session.GetTemplate(setId); template != nil {
 			return template.Apply(header, buf)
 		}
 		return nil, nil
@@ -130,15 +128,7 @@ func (p *NetflowV9Protocol) parseSet(
 		return nil, err
 	}
 	for _, template := range templates {
-		if pending := session.AddTemplate(template); len(pending) > 0 {
-			for _, savedRecord := range pending {
-				f, err := template.Apply(header, bytes.NewBuffer(savedRecord))
-				if err != nil {
-					return nil, err
-				}
-				flows = append(flows, f...)
-			}
-		}
+		session.AddTemplate(template)
 	}
 	return flows, nil
 }

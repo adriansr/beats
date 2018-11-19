@@ -91,7 +91,6 @@ func TestFlowsAndTemplatesPacket(t *testing.T) {
 	key := MakeSessionKey(addr, 200)
 	s, found := v9proto.session.sessions[key]
 	assert.True(t, found)
-	assert.Len(t, s.PendingRecords, 0)
 	assert.Len(t, s.Templates, 4)
 }
 
@@ -130,7 +129,6 @@ func TestOptionTemplates(t *testing.T) {
 		assert.Len(t, v9proto.session.sessions, 1)
 		s, found := v9proto.session.sessions[key]
 		assert.True(t, found)
-		assert.Len(t, s.PendingRecords, 0)
 		assert.Len(t, s.Templates, 1)
 		otp, found := s.Templates[999]
 		assert.True(t, found)
@@ -166,7 +164,6 @@ func TestOptionTemplates(t *testing.T) {
 		assert.Len(t, v9proto.session.sessions, 1)
 		s, found := v9proto.session.sessions[key]
 		assert.True(t, found)
-		assert.Len(t, s.PendingRecords, 0)
 		assert.Len(t, s.Templates, 2)
 		for _, id := range []uint16{998, 999} {
 			otp, found := s.Templates[id]
@@ -195,7 +192,6 @@ func TestOptionTemplates(t *testing.T) {
 		assert.Len(t, v9proto.session.sessions, 1)
 		s, found := v9proto.session.sessions[key]
 		assert.True(t, found)
-		assert.Len(t, s.PendingRecords, 1)
 		assert.Len(t, s.Templates, 0)
 
 		raw = mkPacket([]uint16{
@@ -209,7 +205,6 @@ func TestOptionTemplates(t *testing.T) {
 		flows = proto.OnPacket(raw, addr)
 		assert.Empty(t, flows)
 		assert.Len(t, v9proto.session.sessions, 1)
-		assert.Len(t, s.PendingRecords, 0)
 		assert.Len(t, s.Templates, 1)
 	})
 }

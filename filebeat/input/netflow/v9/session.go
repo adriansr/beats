@@ -18,42 +18,26 @@ func MakeSessionKey(addr net.Addr, sourceID uint32) SessionKey {
 
 type SessionState struct {
 	sync.RWMutex
-	Templates      map[uint16]Template
-	PendingRecords map[uint16][][]byte
-	Delete         atomic.Bool
+	Templates map[uint16]Template
+	Delete    atomic.Bool
 }
 
 func NewSession() *SessionState {
 	return &SessionState{
-		Templates:      make(map[uint16]Template),
-		PendingRecords: make(map[uint16][][]byte),
+		Templates: make(map[uint16]Template),
 	}
 }
 
-func (s *SessionState) AddTemplate(t Template) [][]byte {
+func (s *SessionState) AddTemplate(t Template) {
 	s.Lock()
 	defer s.Unlock()
-	id := t.TemplateID()
-	s.Templates[id] = t
-	if pending, found := s.PendingRecords[id]; found {
-		delete(s.PendingRecords, id)
-		return pending
-	}
-	return nil
+	s.Templates[t.TemplateID()] = t
 }
 
-func (s *SessionState) GetTemplate(id uint16, rawRecords []byte) Template {
+func (s *SessionState) GetTemplate(id uint16) Template {
 	s.RLock()
-	template, found := s.Templates[id]
-	s.RUnlock()
-	if !found {
-		s.Lock()
-		template, found = s.Templates[id]
-		if !found {
-			s.PendingRecords[id] = append(s.PendingRecords[id], rawRecords)
-		}
-		s.Unlock()
-	}
+	defer s.RUnlock()
+	template, _ := s.Templates[id]
 	return template
 }
 
