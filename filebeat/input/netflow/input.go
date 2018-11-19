@@ -124,6 +124,9 @@ func (p *Input) Run() {
 				prevQueue = queue
 			}
 		}()
+		for _, proto := range p.protos {
+			proto.Start()
+		}
 		for i := 0; i < N; i++ {
 			go p.recvRoutine()
 		}
@@ -139,12 +142,17 @@ func (p *Input) Run() {
 func (p *Input) Stop() {
 	p.Lock()
 	defer p.Unlock()
-	defer p.outlet.Close()
-	defer close(p.C)
+	if p.started {
+		defer p.outlet.Close()
+		defer close(p.C)
 
-	logger.Info("Stopping UDP input")
-	p.udp.Stop()
-	p.started = false
+		logger.Info("Stopping UDP input")
+		p.udp.Stop()
+		for _, proto := range p.protos {
+			proto.Stop()
+		}
+		p.started = false
+	}
 }
 
 // Wait suspends the UDP input

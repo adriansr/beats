@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/libbeat/common/atomic"
+	"github.com/elastic/beats/libbeat/logp"
 )
 
 type SessionKey string
@@ -19,14 +20,13 @@ type SessionState struct {
 	sync.RWMutex
 	Templates      map[uint16]Template
 	PendingRecords map[uint16][][]byte
-	Used           atomic.Bool
+	Delete         atomic.Bool
 }
 
 func NewSession() *SessionState {
 	return &SessionState{
 		Templates:      make(map[uint16]Template),
 		PendingRecords: make(map[uint16][][]byte),
-		Used:           atomic.MakeBool(true),
 	}
 }
 
@@ -72,7 +72,7 @@ func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 	m.RLock()
 	session, found := m.sessions[key]
 	if found {
-		session.Used.Store(true)
+		session.Delete.Store(false)
 	}
 	m.RUnlock()
 	if !found {
@@ -86,37 +86,44 @@ func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 	return session
 }
 
-func (m *SessionMap) Cleanup() {
+func (m *SessionMap) cleanupOnce() (alive int, removed int) {
 	var toDelete []SessionKey
 	m.RLock()
+	total := len(m.sessions)
 	for key, session := range m.sessions {
-		if !session.Used.Swap(false) {
+		if !session.Delete.CAS(false, true) {
 			toDelete = append(toDelete, key)
+		} else {
 		}
 	}
 	m.RUnlock()
 	if len(toDelete) > 0 {
 		m.Lock()
+		total = len(m.sessions)
 		for _, key := range toDelete {
-			if session, found := m.sessions[key]; found && !session.Used.Load() {
+			if session, found := m.sessions[key]; found && session.Delete.Load() {
 				delete(m.sessions, key)
+				removed++
 			}
 		}
 		m.Unlock()
 	}
+	return total - removed, removed
 }
 
-func (m *SessionMap) CleanupLoop(interval time.Duration, done <-chan struct{}) {
+func (m *SessionMap) CleanupLoop(interval time.Duration, done <-chan struct{}, logger *logp.Logger) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-
 	for {
 		select {
 		case <-done:
 			return
 
 		case <-t.C:
-			m.Cleanup()
+			alive, removed := m.cleanupOnce()
+			if removed > 0 {
+				logger.Debugf("Expired %d sessions (%d remain)", removed, alive)
+			}
 		}
 	}
 }

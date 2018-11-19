@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -161,4 +162,82 @@ func TestSessionState(t *testing.T) {
 		assert.False(t, t1 == t1c)
 		assert.True(t, t1b == t1b)
 	})
+}
+
+func TestSessionMap_Cleanup(t *testing.T) {
+	sm := NewSessionMap()
+
+	// Session is created
+	k1 := makeSessionKey(t, "127.0.0.1:1234", 1)
+	s1 := sm.GetOrCreate(k1)
+	assert.NotNil(t, s1)
+
+	sm.cleanupOnce()
+
+	// After a cleanup, first session still exists
+	assert.Len(t, sm.sessions, 1) // /!\ HERE /!\
+
+	// Add new session
+	k2 := makeSessionKey(t, "127.0.0.1:1234", 2)
+	s2 := sm.GetOrCreate(k2)
+	assert.NotNil(t, s2)
+	assert.Len(t, sm.sessions, 2)
+
+	// After a new cleanup, s1 is removed because it was not accessed
+	// since the last cleanup.
+	sm.cleanupOnce()
+	assert.Len(t, sm.sessions, 1)
+
+	_, found := sm.sessions[k1]
+	assert.False(t, found)
+
+	// s2 is still there
+	_, found = sm.sessions[k2]
+	assert.True(t, found)
+
+	// Access s2 again
+	sm.GetOrCreate(k2)
+
+	// Cleanup should keep s2 because it has been used since the last cleanup
+	sm.cleanupOnce()
+
+	assert.Len(t, sm.sessions, 1)
+	s2b, found := sm.sessions[k2]
+	assert.True(t, found)
+	assert.True(t, s2 == s2b)
+
+	sm.cleanupOnce()
+	assert.Empty(t, sm.sessions)
+}
+
+func TestSessionMap_CleanupLoop(t *testing.T) {
+	logp.TestingSetup()
+
+	timeout := time.Millisecond * 100
+	sm := NewSessionMap()
+	key := makeSessionKey(t, "127.0.0.1:1", uint32(0))
+	s := sm.GetOrCreate(key)
+
+	done := make(chan struct{})
+	go sm.CleanupLoop(timeout, done, logp.L())
+
+	for found := true; found; {
+		sm.RLock()
+		_, found = sm.sessions[key]
+		sm.RUnlock()
+	}
+	close(done)
+	s2 := sm.GetOrCreate(key)
+	assert.True(t, s != s2)
+	time.Sleep(timeout * 2)
+	s3 := sm.GetOrCreate(key)
+	assert.True(t, s2 == s3)
+}
+
+func makeSession(tb testing.TB) SessionMap {
+	sm := NewSessionMap()
+	for i := 0; i < 1000; i++ {
+		sm.GetOrCreate(makeSessionKey(tb, "127.0.0.1:1", uint32(i)))
+	}
+	return sm
 }

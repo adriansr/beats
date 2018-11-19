@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
@@ -33,7 +34,10 @@ type NetflowV9Protocol struct {
 	id      int
 	logger  *logp.Logger
 	session SessionMap
+	done    chan struct{}
 }
+
+var _ registry.Protocol = (*NetflowV9Protocol)(nil)
 
 func init() {
 	registry.ProtocolRegistry.Register(ProtocolName, New)
@@ -50,6 +54,17 @@ func New() registry.Protocol {
 
 func (_ NetflowV9Protocol) ID() uint16 {
 	return NetflowV9ProtocolID
+}
+
+func (p *NetflowV9Protocol) Start() error {
+	p.done = make(chan struct{})
+	go p.session.CleanupLoop(time.Millisecond*500, p.done, p.logger)
+	return nil
+}
+
+func (p *NetflowV9Protocol) Stop() error {
+	close(p.done)
+	return nil
 }
 
 func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {

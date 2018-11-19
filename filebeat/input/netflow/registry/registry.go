@@ -17,6 +17,8 @@ var (
 type Protocol interface {
 	ID() uint16
 	OnPacket(data []byte, source net.Addr) []flow.Flow
+	Start() error
+	Stop() error
 }
 
 type Generator func() Protocol
