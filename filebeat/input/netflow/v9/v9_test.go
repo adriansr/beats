@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
 )
@@ -43,7 +44,7 @@ func TestFlowsAndTemplatesPacket(t *testing.T) {
 	packet, err := hex.DecodeString(raw)
 	assert.NoError(t, err)
 	proto := New()
-	addr := MakeAddress(t, "127.0.0.1:9999")
+	addr := test.MakeAddress(t, "127.0.0.1:9999")
 	flows := proto.OnPacket(packet, addr)
 	assert.Len(t, flows, 14)
 	eTime, err := time.Parse(time.RFC3339Nano, "2014-08-05T11:18:46.245Z")
@@ -104,7 +105,7 @@ func mkPacket(data []uint16) []byte {
 
 func TestOptionTemplates(t *testing.T) {
 	logp.TestingSetup()
-	addr := MakeAddress(t, "127.0.0.1:12345")
+	addr := test.MakeAddress(t, "127.0.0.1:12345")
 	key := MakeSessionKey(addr)
 
 	t.Run("Single options template", func(t *testing.T) {
@@ -132,7 +133,7 @@ func TestOptionTemplates(t *testing.T) {
 		assert.Len(t, s.Templates, 1)
 		otp := s.GetTemplate(1234, 999)
 		assert.NotNil(t, otp)
-		_, ok = otp.(OptionsTemplate)
+		_, ok = otp.(*OptionsTemplate)
 		assert.True(t, ok)
 	})
 
@@ -168,7 +169,7 @@ func TestOptionTemplates(t *testing.T) {
 		for _, id := range []uint16{998, 999} {
 			otp := s.GetTemplate(1234, id)
 			assert.NotNil(t, otp)
-			_, ok = otp.(OptionsTemplate)
+			_, ok = otp.(*OptionsTemplate)
 			assert.True(t, ok)
 		}
 	})

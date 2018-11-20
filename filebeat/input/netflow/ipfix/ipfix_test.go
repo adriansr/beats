@@ -31,5 +31,9 @@ func TestPacketWithOptions(t *testing.T) {
 
 	proto := New()
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:1234"))
-	assert.NotEmpty(t, flows)
+	assert.Len(t, flows, 7)
+	assert.Equal(t, "options", flows[0].Fields["type"])
+	for i := 1; i < len(flows); i++ {
+		assert.Equal(t, "flow", flows[i].Fields["type"])
+	}
 }

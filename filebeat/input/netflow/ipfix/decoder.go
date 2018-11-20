@@ -73,21 +73,22 @@ func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates [
 			}
 			return nil, err
 		}
-		tID := binary.BigEndian.Uint16(header[:2])
-		totalCount := binary.BigEndian.Uint16(header[2:4])
-		//scopeCount := binary.BigEndian.Uint16(header[4:])
-		//length := optsLen + scopeLen
-		//if buf.Len() < int(length) {
-		//	return nil, ErrNoData
-		//}
-		// Skip contents of template (ignored)
-		//buf.Next(int(length))
-		for i := uint16(0); i < totalCount; i++ {
-			if _, _, err = d.ReadFieldDefinition(buf); err != nil {
-				return nil, err
-			}
+		template := &v9.OptionsTemplate{
+			ID: binary.BigEndian.Uint16(header[:2]),
 		}
-		templates = append(templates, v9.OptionsTemplate(tID))
+		totalCount := int(binary.BigEndian.Uint16(header[2:4]))
+		scopeCount := int(binary.BigEndian.Uint16(header[4:]))
+		if scopeCount > totalCount {
+			return nil, fmt.Errorf("wrong counts in options template flowset: scope=%d total=%d", scopeCount, totalCount)
+		}
+		template.Scope, template.TotalLength, err = v9.ReadFields(d, buf, scopeCount)
+		if err != nil {
+			return nil, err
+		}
+		var extraLen int
+		template.Options, extraLen, err = v9.ReadFields(d, buf, totalCount-scopeCount)
+		template.TotalLength += extraLen
+		templates = append(templates, template)
 	}
 	return templates, nil
 }

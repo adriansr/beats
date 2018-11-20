@@ -74,6 +74,32 @@ func (d DecoderV9) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, len
 	return field, binary.BigEndian.Uint16(row[2:]), nil
 }
 
+func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []FieldTemplate, totalLength int, err error) {
+	readFields = make([]FieldTemplate, count)
+	for i := 0; i < count; i++ {
+		key, length, err := d.ReadFieldDefinition(buf)
+		if err != nil {
+			return nil, 0, ErrNoData
+		}
+		field := FieldTemplate{
+			Length: length,
+		}
+		totalLength += int(field.Length)
+		if fieldInfo, found := fields.IpfixFields[key]; found {
+			min, max := fieldInfo.Decoder.MinLength(), fieldInfo.Decoder.MaxLength()
+			if min <= field.Length && field.Length <= max {
+				field.Info = fieldInfo
+			} else {
+				logp.Warn("Size of field %s in template is out of bounds (size=%d, min=%d, max=%d)", fieldInfo.Name, field.Length, min, max)
+			}
+		} else {
+			logp.Warn("Field %v in template not found", key)
+		}
+		readFields[i] = field
+	}
+	return readFields, totalLength, nil
+}
+
 func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Template, err error) {
 	var row [4]byte
 	for {
@@ -93,30 +119,8 @@ func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Template, er
 		if buf.Len() < 2*count {
 			return nil, ErrNoData
 		}
-		template.Fields = make([]FieldTemplate, count)
-		for i := 0; i < count; i++ {
-			key, length, err := d.ReadFieldDefinition(buf)
-			if err != nil {
-				return nil, ErrNoData
-			}
-			field := FieldTemplate{
-				Length: length,
-			}
-			template.TotalLength += int(field.Length)
-			if fieldInfo, found := fields.IpfixFields[key]; found {
-				min, max := fieldInfo.Decoder.MinLength(), fieldInfo.Decoder.MaxLength()
-				if min <= field.Length && field.Length <= max {
-					field.Info = fieldInfo
-				} else {
-					logp.Warn("Size of field %s in template %d is out of bounds (size=%d, min=%d, max=%d)", fieldInfo.Name, template.ID, field.Length, min, max)
-				}
-			} else {
-				logp.Warn("Field %v in template %d not found", key, template.ID)
-			}
-			template.Fields[i] = field
-		}
+		template.Fields, template.TotalLength, err = ReadFields(d, buf, count)
 		templates = append(templates, template)
-
 	}
 	return templates, nil
 }
@@ -138,8 +142,9 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Templ
 			return nil, ErrNoData
 		}
 		// Skip contents of template (ignored)
+		// TODO read template
 		buf.Next(int(length))
-		templates = append(templates, OptionsTemplate(tID))
+		templates = append(templates, &OptionsTemplate{ID: tID})
 	}
 	return templates, nil
 }
