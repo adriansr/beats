@@ -1,0 +1,16 @@
+,,,,,# from https://github.com/britram/qof/wiki/Information-elements
+initialTCPFlags,6871,14,unsigned8,flags,Flags on the first TCP packet in the forward direction; see tcpControlBits
+unionTCPFlags,6871,15,unsigned8,flags,Union of the flags on all TCP packets after the first TCP packet in the forward direction; see tcpControlBits
+reverseFlowDeltaMilliseconds,6871,21,signed32,quantity,Milliseconds between first packet in the forward direction and the first packet in the reverse direction
+silkTCPState,6871,22,unsigned8,,
+silkFlowType,6871,30,unsigned8,,
+silkFlowSensor,6871,31,unsigned8,,
+silkAppLabel,6871,33,unsigned8,,
+reverseInitialTCPFlags,6871,16398,unsigned8,flags,Flags on the first TCP packet in the reverse direction; see tcpControlBits
+reverseUnionTCPFlags,6871,16399,unsigned8,flags,Union of the flags on all TCP packets after the first TCP packet in the reverse direction; see tcpControlBits
+expiredFragmentCount,6871,100,unsigned32,quantity,Count of fragments expired out of the fragment table since QoF startup; sent in status records
+assembledFragmentCount,6871,101,unsigned32,quantity,Count of fragments assembled in of the fragment table since QoF startup; sent in status records
+meanFlowRate,6871,102,unsigned32,quantity,Mean number of flows processed per second; sent in status records
+meanPacketRate,6871,103,unsigned32,quantity,Mean number of packets processed per second; sent in status records
+flowTableFlushEventCount,6871,104,unsigned32,quantity,Number of flow table flush events since QoF startup; sent in status records
+flowTablePeakCount,6871,105,unsigned32,quantity,Peak flow concurrency since QoF startup; sent in status records

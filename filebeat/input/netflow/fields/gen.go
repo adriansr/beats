@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 )
 
 var (
-	outputFile = flag.String("output", "zfields_ipfix.go", "Output file")
-	name       = flag.String("name", "fields", "Fields name")
+	outputFile = flag.String("output", "zfields.go", "Output file")
+	export     = flag.String("export", "fields", "Name used to export this fields")
+	skipLines  = flag.Int("skip-lines", 0, "Skip the specified number of lines from the start")
+	nameCol    = flag.Int("column-name", 0, "Index of column with field name")
+	penCol     = flag.Int("column-pen", 0, "Index of column with PEN ID")
+	idCol      = flag.Int("column-id", 0, "Index of column with field ID")
+	typeCol    = flag.Int("column-type", 0, "Index of column with field type")
 )
 
 const fileHeader = `// go run gen.go
@@ -24,6 +28,32 @@ package fields
 
 `
 
+var TypeNames = []string{
+	"OctetArray",
+	"Unsigned8",
+	"Unsigned16",
+	"Unsigned32",
+	"Unsigned64",
+	"Signed8",
+	"Signed16",
+	"Signed32",
+	"Signed64",
+	"Float32",
+	"Float64",
+	"Boolean",
+	"MacAddress",
+	"String",
+	"DateTimeSeconds",
+	"DateTimeMilliseconds",
+	"DateTimeMicroseconds",
+	"DateTimeNanoseconds",
+	"Ipv4Address",
+	"Ipv6Address",
+	"BasicList",
+	"SubTemplateList",
+	"SubTemplateMultiList",
+}
+
 func write(w io.Writer, msg string) {
 	if _, err := w.Write([]byte(msg)); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed writting to %s: %v\n", *outputFile, err)
@@ -32,9 +62,16 @@ func write(w io.Writer, msg string) {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: gen [-output file.go] [-name name] <input.csv>\n")
+	fmt.Fprintf(os.Stderr, "Usage: gen [-output file.go] [-export name] [--column-{name|pen|id|type}=N]* <input.csv>\n")
 	flag.PrintDefaults()
 	os.Exit(1)
+}
+
+func requireColumn(colFlag *int, argument string) {
+	if *colFlag <= 0 {
+		fmt.Fprintf(os.Stderr, "Required argument %s not provided\n", argument)
+		usage()
+	}
 }
 
 func main() {
@@ -49,6 +86,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Argument -input is required\n")
 		os.Exit(2)
 	}
+
+	requireColumn(nameCol, "--column-name")
+	requireColumn(idCol, "--column-id")
+	requireColumn(typeCol, "--column-type")
+
 	fHandle, err := os.Open(csvFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open %s: %v\n", csvFile, err)
@@ -64,7 +106,12 @@ func main() {
 	defer outHandle.Close()
 
 	write(outHandle, fileHeader)
-	write(outHandle, fmt.Sprintf("var %s = map[Key]*Field {\n", *name))
+	write(outHandle, fmt.Sprintf("var %s = FieldDict {\n", *export))
+
+	typeMap := make(map[string]string)
+	for _, n := range TypeNames {
+		typeMap[strings.ToLower(n)] = n
+	}
 
 	reader := csv.NewReader(fHandle)
 	for lineNum := 1; ; lineNum++ {
@@ -76,25 +123,48 @@ func main() {
 			fmt.Fprintf(os.Stderr, "read of %s failed: %v\n", csvFile, err)
 			os.Exit(5)
 		}
-		if lineNum == 1 {
+		n := len(record)
+		if lineNum <= *skipLines {
 			continue
 		}
-		if n := len(record); n != 12 {
-			fmt.Fprintf(os.Stderr, "read of %s failed: record len is %d, not 12\n", csvFile, n)
-			os.Exit(3)
+		vars := make(map[string]string)
+		for _, f := range []struct {
+			column int
+			name   string
+		}{
+			{*idCol, "id"},
+			{*penCol, "pen"},
+			{*nameCol, "name"},
+			{*typeCol, "type"},
+		} {
+			if f.column > 0 {
+				if f.column > n {
+					fmt.Fprintf(os.Stderr, "%s column is out of range in line %d\n", f.name, lineNum)
+					os.Exit(6)
+				}
+				vars[f.name] = record[f.column-1]
+			} else {
+				vars[f.name] = "0"
+			}
 		}
-		idS, name, dataType := record[0], record[1], record[2]
-		if len(dataType) == 0 {
-			write(outHandle, fmt.Sprintf("\t// Field %s: %s\n", idS, name))
+		if len(vars["type"]) == 0 {
+			write(outHandle, fmt.Sprintf("\t// Field %s: %s\n", vars["id"], vars["name"]))
 			continue
 		}
-		id, err := strconv.Atoi(idS)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "read of %s failed: field ID '%s' is not convertible to an integer\n", csvFile, idS)
-			os.Exit(3)
+		ttype, found := typeMap[strings.ToLower(vars["type"])]
+		if !found {
+			fmt.Fprintf(os.Stderr, "unknown type %s in line %d\n", vars["type"], lineNum)
+			os.Exit(7)
 		}
-		write(outHandle, fmt.Sprintf("\tKey{FieldID:%d}: {Key: Key{FieldID:%d}, Name: \"%s\", Decoder: %s},\n",
-			id, id, name, strings.Title(dataType)))
+		write(outHandle, fmt.Sprintf("\tKey{EnterpriseID: %s, FieldID: %s}: {Name: \"%s\", Decoder: %s},\n",
+			vars["pen"], vars["id"], vars["name"], ttype))
 	}
-	write(outHandle, "}\n")
+	write(outHandle, fmt.Sprintf(`}
+
+func init() {
+  if err := RegisterFields(%s); err != nil {
+    panic(err)
+  }
+}
+`, *export))
 }
