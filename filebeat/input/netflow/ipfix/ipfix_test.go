@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPacketWithOptions(t *testing.T) {
+func TestMessageWithOptions(t *testing.T) {
 	rawString := "" +
 		"000a01e45bf435e1000000a500000000000200480400001000080004000c0004" +
 		"0001000400020004000a0004000e000400070002000b00020004000100060001" +
@@ -31,9 +31,10 @@ func TestPacketWithOptions(t *testing.T) {
 
 	proto := New()
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:1234"))
-	assert.Len(t, flows, 7)
-	assert.Equal(t, "options", flows[0].Fields["type"])
-	for i := 1; i < len(flows); i++ {
-		assert.Equal(t, "flow", flows[i].Fields["type"])
+	if assert.Len(t, flows, 7) {
+		assert.Equal(t, "options", flows[0].Fields["type"])
+		for i := 1; i < len(flows); i++ {
+			assert.Equal(t, "flow", flows[i].Fields["type"])
+		}
 	}
 }
