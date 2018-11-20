@@ -98,29 +98,26 @@ func TestSessionMap_GetOrCreate(t *testing.T) {
 	})
 }
 
-func testTemplate(id uint16, creation time.Time) Template {
+func testTemplate(id uint16) Template {
 	return &RecordTemplate{
-		ID:      id,
-		Created: creation,
+		ID: id,
 	}
 }
 
 func TestSessionState(t *testing.T) {
 	t.Run("create and get", func(t *testing.T) {
 		s := NewSession()
-		baseTime := time.Now()
-		t1 := testTemplate(1, baseTime)
+		t1 := testTemplate(1)
 		s.AddTemplate(t1)
 		t2 := s.GetTemplate(1)
 		assert.True(t, t1 == t2)
 	})
 	t.Run("update", func(t *testing.T) {
 		s := NewSession()
-		baseTime := time.Now()
-		t1 := testTemplate(1, baseTime)
+		t1 := testTemplate(1)
 		s.AddTemplate(t1)
 
-		t2 := testTemplate(2, baseTime)
+		t2 := testTemplate(2)
 		s.AddTemplate(t2)
 
 		t1c := s.GetTemplate(1)
@@ -129,7 +126,7 @@ func TestSessionState(t *testing.T) {
 		t2c := s.GetTemplate(2)
 		assert.True(t, t2 == t2c)
 
-		t1b := testTemplate(1, baseTime.Add(time.Hour))
+		t1b := testTemplate(1)
 		s.AddTemplate(t1b)
 
 		t1c = s.GetTemplate(1)
@@ -146,7 +143,7 @@ func TestSessionMap_Cleanup(t *testing.T) {
 	s1 := sm.GetOrCreate(k1)
 	assert.NotNil(t, s1)
 
-	sm.cleanupOnce()
+	sm.cleanup()
 
 	// After a cleanup, first session still exists
 	assert.Len(t, sm.sessions, 1) // /!\ HERE /!\
@@ -159,7 +156,7 @@ func TestSessionMap_Cleanup(t *testing.T) {
 
 	// After a new cleanup, s1 is removed because it was not accessed
 	// since the last cleanup.
-	sm.cleanupOnce()
+	sm.cleanup()
 	assert.Len(t, sm.sessions, 1)
 
 	_, found := sm.sessions[k1]
@@ -173,14 +170,14 @@ func TestSessionMap_Cleanup(t *testing.T) {
 	sm.GetOrCreate(k2)
 
 	// Cleanup should keep s2 because it has been used since the last cleanup
-	sm.cleanupOnce()
+	sm.cleanup()
 
 	assert.Len(t, sm.sessions, 1)
 	s2b, found := sm.sessions[k2]
 	assert.True(t, found)
 	assert.True(t, s2 == s2b)
 
-	sm.cleanupOnce()
+	sm.cleanup()
 	assert.Empty(t, sm.sessions)
 }
 
@@ -214,4 +211,31 @@ func makeSession(tb testing.TB) SessionMap {
 		sm.GetOrCreate(makeSessionKey(tb, "127.0.0.1:1", uint32(i)))
 	}
 	return sm
+}
+
+func TestTemplateExpiration(t *testing.T) {
+	logp.TestingSetup()
+
+	s := NewSession()
+	assert.Nil(t, s.GetTemplate(256))
+	assert.Nil(t, s.GetTemplate(257))
+	s.AddTemplate(testTemplate(256))
+	s.AddTemplate(testTemplate(257))
+
+	s.ExpireTemplates()
+
+	assert.NotNil(t, s.GetTemplate(256))
+	_, found := s.Templates[257]
+	assert.True(t, found)
+
+	s.ExpireTemplates()
+
+	_, found = s.Templates[256]
+	assert.True(t, found)
+
+	assert.Nil(t, s.GetTemplate(257))
+
+	s.ExpireTemplates()
+
+	assert.Nil(t, s.GetTemplate(256))
 }

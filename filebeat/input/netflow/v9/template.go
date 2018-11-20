@@ -14,7 +14,6 @@ import (
 
 type Template interface {
 	TemplateID() uint16
-	CreationDate() time.Time
 	Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error)
 }
 
@@ -26,16 +25,11 @@ type FieldTemplate struct {
 type RecordTemplate struct {
 	ID          uint16
 	Fields      []FieldTemplate
-	Created     time.Time
 	TotalLength int
 }
 
 func (t RecordTemplate) TemplateID() uint16 {
 	return t.ID
-}
-
-func (t RecordTemplate) CreationDate() time.Time {
-	return t.Created
 }
 
 func (t *RecordTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error) {
@@ -81,26 +75,18 @@ func (t *RecordTemplate) ApplyOne(header PacketHeader, data *bytes.Buffer) (ev f
 	return ev, nil
 }
 
-type OptionsTemplate struct {
-	ID      uint16
-	Created time.Time
+type OptionsTemplate uint16
+
+func (t OptionsTemplate) TemplateID() uint16 {
+	return uint16(t)
 }
 
-func (t *OptionsTemplate) TemplateID() uint16 {
-	return t.ID
-}
-
-func (t *OptionsTemplate) CreationDate() time.Time {
-	return t.Created
-}
-
-func (t *OptionsTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error) {
+func (t OptionsTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error) {
 	// Option parsing unimplemented
 	return nil, nil
 }
 
 func readTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err error) {
-	now := time.Now()
 	var row [4]byte
 	for {
 		if buf.Len() < 4 {
@@ -110,8 +96,7 @@ func readTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err error) {
 			return nil, ErrNoData
 		}
 		template := &RecordTemplate{
-			ID:      binary.BigEndian.Uint16(row[:2]),
-			Created: now,
+			ID: binary.BigEndian.Uint16(row[:2]),
 		}
 		if template.ID < 256 {
 			return nil, errors.New("invalid template id")
@@ -153,7 +138,6 @@ func readTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err error) {
 }
 
 func readOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err error) {
-	now := time.Now()
 	var header [6]byte
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
@@ -171,10 +155,7 @@ func readOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err er
 		}
 		// Skip contents of template (ignored)
 		buf.Next(int(length))
-		templates = append(templates, &OptionsTemplate{
-			ID:      tID,
-			Created: now,
-		})
+		templates = append(templates, OptionsTemplate(tID))
 	}
 	return templates, nil
 }

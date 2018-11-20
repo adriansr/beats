@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	ProtocolName                = "v9"
-	LogSelector                 = "netflow-v9"
-	NetflowV9ProtocolID  uint16 = 9
-	TemplateFlowSetID           = 0
-	TemplateOptionsSetID        = 1
+	ProtocolName                 = "v9"
+	LogSelector                  = "netflow-v9"
+	NetflowV9ProtocolID   uint16 = 9
+	TemplateFlowSetID            = 0
+	TemplateOptionsSetID         = 1
+	MaxSequenceDifference        = 100
 )
 
 var (
@@ -31,10 +32,11 @@ var (
 )
 
 type NetflowV9Protocol struct {
-	id      int
-	logger  *logp.Logger
-	session SessionMap
-	done    chan struct{}
+	id        int
+	logger    *logp.Logger
+	sequences map[string]uint32
+	session   SessionMap
+	done      chan struct{}
 }
 
 var _ registry.Protocol = (*NetflowV9Protocol)(nil)
@@ -45,8 +47,9 @@ func init() {
 
 func New() registry.Protocol {
 	proto := &NetflowV9Protocol{
-		id:      id.Inc(),
-		session: NewSessionMap(),
+		id:        id.Inc(),
+		sequences: make(map[string]uint32),
+		session:   NewSessionMap(),
 	}
 	proto.logger = logp.NewLogger(LogSelector)
 	return proto
@@ -58,7 +61,7 @@ func (_ NetflowV9Protocol) ID() uint16 {
 
 func (p *NetflowV9Protocol) Start() error {
 	p.done = make(chan struct{})
-	go p.session.CleanupLoop(time.Millisecond*500, p.done, p.logger)
+	go p.session.CleanupLoop(time.Millisecond*4500, p.done, p.logger)
 	return nil
 }
 
@@ -77,6 +80,15 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 	p.logger.Debugf("Received %d bytes from %s: %+v", len(data), source, header)
 
 	session := p.session.GetOrCreate(MakeSessionKey(source, header.SourceID))
+	remote := source.String()
+
+	if lastSeq, found := p.sequences[remote]; found {
+		if diff := int32(lastSeq - header.SequenceNo); diff > MaxSequenceDifference {
+			session.Reset()
+			p.logger.Warnf("Session reset from %s (seq=%d last=%d)", remote, header.SequenceNo, lastSeq)
+		}
+	}
+	p.sequences[remote] = header.SequenceNo
 
 	for {
 		set, err := ReadSetHeader(buf)

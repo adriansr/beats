@@ -27,7 +27,7 @@ const (
 
 var (
 	logger  *logp.Logger
-	N       = 16
+	N       = 1
 	Packets = atomic.NewInt(0)
 	Flows   = atomic.NewInt(0)
 )

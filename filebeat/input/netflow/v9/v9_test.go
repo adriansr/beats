@@ -130,9 +130,9 @@ func TestOptionTemplates(t *testing.T) {
 		s, found := v9proto.session.sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 1)
-		otp, found := s.Templates[999]
-		assert.True(t, found)
-		_, ok = otp.(*OptionsTemplate)
+		otp := s.GetTemplate(999)
+		assert.NotNil(t, otp)
+		_, ok = otp.(OptionsTemplate)
 		assert.True(t, ok)
 	})
 
@@ -166,9 +166,9 @@ func TestOptionTemplates(t *testing.T) {
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 2)
 		for _, id := range []uint16{998, 999} {
-			otp, found := s.Templates[id]
-			assert.True(t, found)
-			_, ok = otp.(*OptionsTemplate)
+			otp := s.GetTemplate(id)
+			assert.NotNil(t, otp)
+			_, ok = otp.(OptionsTemplate)
 			assert.True(t, ok)
 		}
 	})
