@@ -2,8 +2,6 @@ package v9
 
 import (
 	"bytes"
-	"encoding/binary"
-	"errors"
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
@@ -14,7 +12,7 @@ import (
 
 type Template interface {
 	TemplateID() uint16
-	Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error)
+	Apply(data *bytes.Buffer) ([]flow.Flow, error)
 }
 
 type FieldTemplate struct {
@@ -32,7 +30,7 @@ func (t RecordTemplate) TemplateID() uint16 {
 	return t.ID
 }
 
-func (t *RecordTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error) {
+func (t *RecordTemplate) Apply(data *bytes.Buffer) ([]flow.Flow, error) {
 	if t.TotalLength == 0 {
 		// TODO: Empty template
 		return nil, nil
@@ -40,7 +38,7 @@ func (t *RecordTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.
 	n := data.Len() / t.TotalLength
 	events := make([]flow.Flow, 0, n)
 	for i := 0; i < n; i++ {
-		event, err := t.ApplyOne(header, bytes.NewBuffer(data.Next(t.TotalLength)))
+		event, err := t.ApplyOne(bytes.NewBuffer(data.Next(t.TotalLength)))
 		if err != nil {
 			return events, err
 		}
@@ -49,7 +47,7 @@ func (t *RecordTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.
 	return events, nil
 }
 
-func (t *RecordTemplate) ApplyOne(header PacketHeader, data *bytes.Buffer) (ev flow.Flow, err error) {
+func (t *RecordTemplate) ApplyOne(data *bytes.Buffer) (ev flow.Flow, err error) {
 	if data.Len() != t.TotalLength {
 		return ev, ErrNoData
 	}
@@ -81,81 +79,7 @@ func (t OptionsTemplate) TemplateID() uint16 {
 	return uint16(t)
 }
 
-func (t OptionsTemplate) Apply(header PacketHeader, data *bytes.Buffer) ([]flow.Flow, error) {
+func (t OptionsTemplate) Apply(data *bytes.Buffer) ([]flow.Flow, error) {
 	// Option parsing unimplemented
 	return nil, nil
-}
-
-func readTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err error) {
-	var row [4]byte
-	for {
-		if buf.Len() < 4 {
-			return templates, nil
-		}
-		if n, err := buf.Read(row[:]); err != nil || n != len(row) {
-			return nil, ErrNoData
-		}
-		template := &RecordTemplate{
-			ID: binary.BigEndian.Uint16(row[:2]),
-		}
-		if template.ID < 256 {
-			return nil, errors.New("invalid template id")
-		}
-		count := int(binary.BigEndian.Uint16(row[2:]))
-		// TODO: Extra IPFIX data (Enterprise)
-		if buf.Len() < 2*count {
-			return nil, ErrNoData
-		}
-		template.Fields = make([]FieldTemplate, count)
-		for i := 0; i < count; i++ {
-			if n, err := buf.Read(row[:]); err != nil || n != len(row) {
-				return nil, ErrNoData
-			}
-			key := fields.Key{
-				EnterpriseID: 0,
-				FieldID:      binary.BigEndian.Uint16(row[:2]),
-			}
-			field := FieldTemplate{
-				Length: binary.BigEndian.Uint16(row[2:]),
-			}
-			template.TotalLength += int(field.Length)
-			if fieldInfo, found := fields.IpfixFields[key]; found {
-				min, max := fieldInfo.Decoder.MinLength(), fieldInfo.Decoder.MaxLength()
-				if min <= field.Length && field.Length <= max {
-					field.Info = fieldInfo
-				} else {
-					logp.Warn("Size of field %s in template %d is out of bounds (size=%d, min=%d, max=%d)", fieldInfo.Name, template.ID, field.Length, min, max)
-				}
-			} else {
-				logp.Warn("Field %v in template %d not found", key, template.ID)
-			}
-			template.Fields[i] = field
-		}
-		templates = append(templates, template)
-
-	}
-	return templates, nil
-}
-
-func readOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []Template, err error) {
-	var header [6]byte
-	for buf.Len() >= len(header) {
-		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
-			if err == nil {
-				err = ErrNoData
-			}
-			return nil, err
-		}
-		tID := binary.BigEndian.Uint16(header[:2])
-		scopeLen := binary.BigEndian.Uint16(header[2:4])
-		optsLen := binary.BigEndian.Uint16(header[4:])
-		length := optsLen + scopeLen
-		if buf.Len() < int(length) {
-			return nil, ErrNoData
-		}
-		// Skip contents of template (ignored)
-		buf.Next(int(length))
-		templates = append(templates, OptionsTemplate(tID))
-	}
-	return templates, nil
 }

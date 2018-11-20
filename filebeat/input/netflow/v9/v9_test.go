@@ -12,7 +12,7 @@ import (
 )
 
 func TestNetflowV9Protocol_ID(t *testing.T) {
-	assert.Equal(t, NetflowV9ProtocolID, New().ID())
+	assert.Equal(t, ProtocolID, New().ID())
 }
 
 func TestFlowsAndTemplatesPacket(t *testing.T) {
@@ -43,7 +43,7 @@ func TestFlowsAndTemplatesPacket(t *testing.T) {
 	packet, err := hex.DecodeString(raw)
 	assert.NoError(t, err)
 	proto := New()
-	addr := makeAddr(t, "127.0.0.1:9999")
+	addr := MakeAddress(t, "127.0.0.1:9999")
 	flows := proto.OnPacket(packet, addr)
 	assert.Len(t, flows, 14)
 	eTime, err := time.Parse(time.RFC3339Nano, "2014-08-05T11:18:46.245Z")
@@ -88,7 +88,7 @@ func TestFlowsAndTemplatesPacket(t *testing.T) {
 	assert.True(t, ok)
 
 	assert.Len(t, v9proto.session.sessions, 1)
-	key := MakeSessionKey(addr, 200)
+	key := MakeSessionKey(addr)
 	s, found := v9proto.session.sessions[key]
 	assert.True(t, found)
 	assert.Len(t, s.Templates, 4)
@@ -104,8 +104,8 @@ func mkPacket(data []uint16) []byte {
 
 func TestOptionTemplates(t *testing.T) {
 	logp.TestingSetup()
-	addr := makeAddr(t, "127.0.0.1:12345")
-	key := MakeSessionKey(addr, 1234)
+	addr := MakeAddress(t, "127.0.0.1:12345")
+	key := MakeSessionKey(addr)
 
 	t.Run("Single options template", func(t *testing.T) {
 		proto := New()
@@ -130,7 +130,7 @@ func TestOptionTemplates(t *testing.T) {
 		s, found := v9proto.session.sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 1)
-		otp := s.GetTemplate(999)
+		otp := s.GetTemplate(1234, 999)
 		assert.NotNil(t, otp)
 		_, ok = otp.(OptionsTemplate)
 		assert.True(t, ok)
@@ -166,7 +166,7 @@ func TestOptionTemplates(t *testing.T) {
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 2)
 		for _, id := range []uint16{998, 999} {
-			otp := s.GetTemplate(id)
+			otp := s.GetTemplate(1234, id)
 			assert.NotNil(t, otp)
 			_, ok = otp.(OptionsTemplate)
 			assert.True(t, ok)

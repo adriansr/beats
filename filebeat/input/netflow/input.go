@@ -117,11 +117,13 @@ func (p *Input) Run() {
 				packets := Packets.Load()
 				flows := Flows.Load()
 				queue := len(p.C)
-				logger.Debugf("Read packets=%d flows=%d queue=%d (+%d pps +%d fps %+d qv)",
-					packets, flows, queue, packets-prevPackets, flows-prevFlows, queue-prevQueue)
-				prevFlows = flows
-				prevPackets = packets
-				prevQueue = queue
+				if packets > prevPackets || flows > prevFlows || queue > prevQueue {
+					logger.Debugf("Read packets=%d flows=%d queue=%d (+%d pps +%d fps %+d qv)",
+						packets, flows, queue, packets-prevPackets, flows-prevFlows, queue-prevQueue)
+					prevFlows = flows
+					prevPackets = packets
+					prevQueue = queue
+				}
 			}
 		}()
 		for _, proto := range p.protos {
@@ -169,14 +171,14 @@ func (p *Input) recvRoutine() {
 	for packet := range p.C {
 		if len(packet.data) < 4 {
 			logger.Warn("received packet too small")
-			return
+			continue
 		}
 		version := binary.BigEndian.Uint16(packet.data)
 
 		handler, exists := p.protos[version]
 		if !exists {
 			logger.Warnf("Ignoring packet from version %d", version)
-			return
+			continue
 		}
 		flows := handler.OnPacket(packet.data, packet.source)
 		if n := len(flows); n > 0 {

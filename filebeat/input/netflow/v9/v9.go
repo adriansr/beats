@@ -4,35 +4,28 @@ package v9
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
-	"github.com/elastic/beats/libbeat/common/atomic"
 	"github.com/elastic/beats/libbeat/logp"
 )
 
 const (
 	ProtocolName                 = "v9"
 	LogSelector                  = "netflow-v9"
-	NetflowV9ProtocolID   uint16 = 9
-	TemplateFlowSetID            = 0
-	TemplateOptionsSetID         = 1
+	ProtocolID            uint16 = 9
 	MaxSequenceDifference        = 100
 )
 
 var (
 	ErrNoData = errors.New("not enough data")
-
-	id atomic.Int
 )
 
 type NetflowV9Protocol struct {
-	id        int
+	decoder   Decoder
 	logger    *logp.Logger
 	sequences map[string]uint32
 	session   SessionMap
@@ -46,22 +39,25 @@ func init() {
 }
 
 func New() registry.Protocol {
-	proto := &NetflowV9Protocol{
-		id:        id.Inc(),
+	return NewProtocolWithDecoder(DecoderV9{}, logp.NewLogger(LogSelector))
+}
+
+func NewProtocolWithDecoder(decoder Decoder, logger *logp.Logger) *NetflowV9Protocol {
+	return &NetflowV9Protocol{
+		decoder:   decoder,
 		sequences: make(map[string]uint32),
 		session:   NewSessionMap(),
+		logger:    logger,
 	}
-	proto.logger = logp.NewLogger(LogSelector)
-	return proto
 }
 
 func (_ NetflowV9Protocol) ID() uint16 {
-	return NetflowV9ProtocolID
+	return ProtocolID
 }
 
 func (p *NetflowV9Protocol) Start() error {
 	p.done = make(chan struct{})
-	go p.session.CleanupLoop(time.Millisecond*4500, p.done, p.logger)
+	go p.session.CleanupLoop(time.Millisecond*5000, p.done, p.logger)
 	return nil
 }
 
@@ -72,14 +68,14 @@ func (p *NetflowV9Protocol) Stop() error {
 
 func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
 	buf := bytes.NewBuffer(data)
-	header, err := ReadPacketHeader(buf)
+	header, err := p.decoder.ReadPacketHeader(buf)
 	if err != nil {
 		p.logger.Errorf("Unable to read V9 header: %v", err)
 		return nil
 	}
 	p.logger.Debugf("Received %d bytes from %s: %+v", len(data), source, header)
 
-	session := p.session.GetOrCreate(MakeSessionKey(source, header.SourceID))
+	session := p.session.GetOrCreate(MakeSessionKey(source))
 	remote := source.String()
 
 	if lastSeq, found := p.sequences[remote]; found {
@@ -91,7 +87,7 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 	p.sequences[remote] = header.SequenceNo
 
 	for {
-		set, err := ReadSetHeader(buf)
+		set, err := p.decoder.ReadSetHeader(buf)
 		if err != nil || set.IsPadding() {
 			break
 		}
@@ -102,9 +98,9 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 		body := bytes.NewBuffer(buf.Next(set.BodyLength()))
 		p.logger.Debugf(" - Set %d len %d", set.SetID, set.BodyLength())
 
-		f, err := p.parseSet(header, set.SetID, session, body)
+		f, err := p.parseSet(set.SetID, session, header.SourceID, body)
 		if err != nil {
-			p.logger.Warnf("Error parsing set: %v", err)
+			p.logger.Warnf("Error parsing set %d: %v", set.SetID, err)
 			break
 		}
 		flows = append(flows, f...)
@@ -113,82 +109,26 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 }
 
 func (p *NetflowV9Protocol) parseSet(
-	header PacketHeader,
-	setId uint16,
+	setID uint16,
 	session *SessionState,
+	sourceID uint32,
 	buf *bytes.Buffer) (flows []flow.Flow, err error) {
 
-	if setId >= 256 {
+	if setID >= 256 {
 		// Flow of Options record, lookup template and generate flows
-		if template := session.GetTemplate(setId); template != nil {
-			return template.Apply(header, buf)
+		if template := session.GetTemplate(sourceID, setID); template != nil {
+			return template.Apply(buf)
 		}
 		return nil, nil
 	}
 
 	// Template sets
-	var templates []Template
-	switch setId {
-	case TemplateFlowSetID:
-		templates, err = readTemplateFlowSet(buf)
-	case TemplateOptionsSetID:
-		templates, err = readOptionsTemplateFlowSet(buf)
-	default:
-		err = fmt.Errorf("set id %d not supported", setId)
-	}
+	templates, err := p.decoder.ReadTemplateSet(setID, buf)
 	if err != nil {
 		return nil, err
 	}
 	for _, template := range templates {
-		session.AddTemplate(template)
+		session.AddTemplate(sourceID, template)
 	}
 	return flows, nil
-}
-
-type PacketHeader struct {
-	Version, Count                            uint16
-	SysUptime, UnixSecs, SequenceNo, SourceID uint32
-}
-
-type SetHeader struct {
-	SetID, Length uint16
-}
-
-func (h SetHeader) BodyLength() int {
-	if h.Length < 4 {
-		return 0
-	}
-	return int(h.Length) - 4
-}
-
-func (h SetHeader) IsPadding() bool {
-	return h.SetID == 0 && h.Length == 0
-}
-
-func ReadPacketHeader(buf *bytes.Buffer) (PacketHeader, error) {
-	var data [20]byte
-	n, err := buf.Read(data[:])
-	if n != len(data) || err != nil {
-		return PacketHeader{}, ErrNoData
-	}
-	return PacketHeader{
-		Version:    binary.BigEndian.Uint16(data[:2]),
-		Count:      binary.BigEndian.Uint16(data[2:4]),
-		SysUptime:  binary.BigEndian.Uint32(data[4:8]),
-		UnixSecs:   binary.BigEndian.Uint32(data[8:12]),
-		SequenceNo: binary.BigEndian.Uint32(data[12:16]),
-		SourceID:   binary.BigEndian.Uint32(data[16:20]),
-	}, nil
-}
-
-func ReadSetHeader(buf *bytes.Buffer) (SetHeader, error) {
-	var data [4]byte
-	n, err := buf.Read(data[:])
-	if n != len(data) || err != nil {
-		return SetHeader{}, ErrNoData
-	}
-	return SetHeader{
-		SetID:  binary.BigEndian.Uint16(data[:2]),
-		Length: binary.BigEndian.Uint16(data[2:4]),
-	}, nil
 }

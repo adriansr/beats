@@ -1,7 +1,6 @@
 package v9
 
 import (
-	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -12,8 +11,13 @@ import (
 
 type SessionKey string
 
-func MakeSessionKey(addr net.Addr, sourceID uint32) SessionKey {
-	return SessionKey(fmt.Sprintf("%s:%d", addr, sourceID))
+func MakeSessionKey(addr net.Addr) SessionKey {
+	return SessionKey(addr.String())
+}
+
+type TemplateKey struct {
+	SourceID   uint32
+	TemplateID uint16
 }
 
 type TemplateWrapper struct {
@@ -23,26 +27,28 @@ type TemplateWrapper struct {
 
 type SessionState struct {
 	sync.RWMutex
-	Templates map[uint16]*TemplateWrapper
+	Templates map[TemplateKey]*TemplateWrapper
 	Delete    atomic.Bool
 }
 
 func NewSession() *SessionState {
 	return &SessionState{
-		Templates: make(map[uint16]*TemplateWrapper),
+		Templates: make(map[TemplateKey]*TemplateWrapper),
 	}
 }
 
-func (s *SessionState) AddTemplate(t Template) {
+func (s *SessionState) AddTemplate(sourceId uint32, t Template) {
+	key := TemplateKey{sourceId, t.TemplateID()}
 	s.Lock()
 	defer s.Unlock()
-	s.Templates[t.TemplateID()] = &TemplateWrapper{Template: t}
+	s.Templates[key] = &TemplateWrapper{Template: t}
 }
 
-func (s *SessionState) GetTemplate(id uint16) (template Template) {
+func (s *SessionState) GetTemplate(sourceId uint32, id uint16) (template Template) {
+	key := TemplateKey{sourceId, id}
 	s.RLock()
 	defer s.RUnlock()
-	wrapper, found := s.Templates[id]
+	wrapper, found := s.Templates[key]
 	if found {
 		template = wrapper.Template
 		wrapper.Delete.Store(false)
@@ -50,30 +56,34 @@ func (s *SessionState) GetTemplate(id uint16) (template Template) {
 	return template
 }
 
-func (s *SessionState) ExpireTemplates() {
-	var toDelete []uint16
+func (s *SessionState) ExpireTemplates() (alive int, removed int) {
+	var toDelete []TemplateKey
 	s.RLock()
 	for id, template := range s.Templates {
 		if !template.Delete.CAS(false, true) {
 			toDelete = append(toDelete, id)
 		}
 	}
+	total := len(s.Templates)
 	s.RUnlock()
 	if len(toDelete) > 0 {
 		s.Lock()
+		total = len(s.Templates)
 		for _, id := range toDelete {
 			if template, found := s.Templates[id]; found && template.Delete.Load() {
 				delete(s.Templates, id)
+				removed++
 			}
 		}
 		s.Unlock()
 	}
+	return total - removed, removed
 }
 
 func (s *SessionState) Reset() {
 	s.Lock()
 	defer s.Unlock()
-	s.Templates = make(map[uint16]*TemplateWrapper)
+	s.Templates = make(map[TemplateKey]*TemplateWrapper)
 }
 
 type SessionMap struct {
@@ -105,12 +115,14 @@ func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 	return session
 }
 
-func (m *SessionMap) cleanup() (alive int, removed int) {
+func (m *SessionMap) cleanup() (aliveSession int, removedSession int, aliveTemplates int, removedTemplates int) {
 	var toDelete []SessionKey
 	m.RLock()
 	total := len(m.sessions)
 	for key, session := range m.sessions {
-		session.ExpireTemplates()
+		a, r := session.ExpireTemplates()
+		aliveTemplates += a
+		removedTemplates += r
 		if !session.Delete.CAS(false, true) {
 			toDelete = append(toDelete, key)
 		}
@@ -122,12 +134,12 @@ func (m *SessionMap) cleanup() (alive int, removed int) {
 		for _, key := range toDelete {
 			if session, found := m.sessions[key]; found && session.Delete.Load() {
 				delete(m.sessions, key)
-				removed++
+				removedSession++
 			}
 		}
 		m.Unlock()
 	}
-	return total - removed, removed
+	return total - removedSession, removedSession, aliveTemplates, removedTemplates
 }
 
 func (m *SessionMap) CleanupLoop(interval time.Duration, done <-chan struct{}, logger *logp.Logger) {
@@ -139,9 +151,9 @@ func (m *SessionMap) CleanupLoop(interval time.Duration, done <-chan struct{}, l
 			return
 
 		case <-t.C:
-			alive, removed := m.cleanup()
-			if removed > 0 {
-				logger.Debugf("Expired %d sessions (%d remain)", removed, alive)
+			aliveS, removedS, aliveT, removedT := m.cleanup()
+			if removedS > 0 || removedT > 0 {
+				logger.Infof("Expired %d sessions (%d remain) / %d templates (%d remain)", removedS, aliveS, removedT, aliveT)
 			}
 		}
 	}

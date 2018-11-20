@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/elastic/beats/filebeat/input/netflow/ipfix"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
 
 	"github.com/elastic/beats/filebeat/harvester"
@@ -25,7 +26,7 @@ var defaultConfig = config{
 		// TODO: Is this type=udp or type=my_input?
 		Type: InputName,
 	},
-	Protocols: []string{v9.ProtocolName},
+	Protocols: []string{v9.ProtocolName, ipfix.ProtocolName},
 }
 
 type config struct {
