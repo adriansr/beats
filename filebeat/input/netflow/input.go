@@ -107,7 +107,7 @@ func (p *Input) Run() {
 
 	if !p.started {
 		logger.Info("Starting UDP input")
-		p.C = make(chan Packet, 819200)
+		p.C = make(chan Packet, 16384)
 		prevPackets := 0
 		prevFlows := 0
 		prevQueue := 0

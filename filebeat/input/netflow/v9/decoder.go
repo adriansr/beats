@@ -85,7 +85,7 @@ func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []FieldTemp
 			Length: length,
 		}
 		totalLength += int(field.Length)
-		if fieldInfo, found := fields.IpfixFields[key]; found {
+		if fieldInfo, found := fields.Fields[key]; found {
 			min, max := fieldInfo.Decoder.MinLength(), fieldInfo.Decoder.MaxLength()
 			if min <= field.Length && field.Length <= max {
 				field.Info = fieldInfo
