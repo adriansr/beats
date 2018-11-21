@@ -9,4 +9,5 @@ import (
 type Flow struct {
 	Timestamp time.Time
 	Fields    common.MapStr
+	Exporter  common.MapStr
 }

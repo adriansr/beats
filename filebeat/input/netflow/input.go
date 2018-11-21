@@ -185,6 +185,8 @@ func (p *Input) recvRoutine() {
 			evs := make([]beat.Event, n)
 			Flows.Add(n)
 			for i, flow := range flows {
+				// Nest metadata under netflow
+				flow.Fields["exporter"] = flow.Exporter
 				evs[i] = beat.Event{
 					Timestamp: flow.Timestamp,
 					Fields: common.MapStr{

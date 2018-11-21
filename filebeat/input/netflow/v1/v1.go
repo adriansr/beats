@@ -3,6 +3,7 @@ package v1
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"time"
 
@@ -10,12 +11,12 @@ import (
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
 
 const (
 	ProtocolName        = "v1"
-	LogSelector         = "netflow-v1"
 	ProtocolID   uint16 = 1
 )
 
@@ -42,8 +43,13 @@ var template = v9.RecordTemplate{
 	TotalLength: 48,
 }
 
-type NetflowV5Protocol struct {
-	logger *logp.Logger
+type ReadHeaderFn func(*bytes.Buffer, net.Addr) (int, time.Time, common.MapStr, error)
+
+type NetflowProtocol struct {
+	logger       *logp.Logger
+	flowTemplate v9.Template
+	version      uint16
+	readHeader   ReadHeaderFn
 }
 
 func init() {
@@ -51,37 +57,42 @@ func init() {
 }
 
 func New() registry.Protocol {
-	return &NetflowV5Protocol{
-		logger: logp.NewLogger(LogSelector),
+	return NewProtocol(ProtocolID, &template, readV1Header)
+}
+
+func NewProtocol(version uint16, template v9.Template, readHeader ReadHeaderFn) registry.Protocol {
+	return &NetflowProtocol{
+		logger:       logp.NewLogger(fmt.Sprintf("netflow-v%d", version)),
+		flowTemplate: template,
+		version:      version,
+		readHeader:   readHeader,
 	}
 }
 
-func (NetflowV5Protocol) ID() uint16 {
-	return ProtocolID
+func (p *NetflowProtocol) ID() uint16 {
+	return p.version
 }
 
-func (NetflowV5Protocol) Start() error {
+func (NetflowProtocol) Start() error {
 	return nil
 }
 
-func (NetflowV5Protocol) Stop() error {
+func (NetflowProtocol) Stop() error {
 	return nil
 }
 
-func (p NetflowV5Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
+func (p *NetflowProtocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
 	buf := bytes.NewBuffer(data)
-	header, err := ReadPacketHeader(buf)
+	// TODO: count
+	_, timestamp, metadata, err := p.readHeader(buf, source)
 	if err != nil {
 		p.logger.Errorf("Failed parsing packet of %d bytes: %v", len(data), err)
 		return nil
 	}
-	if header.Count < 1 || header.Count > 32 {
-		return nil
-	}
-	//p.logger.Infof("Received packet of %d bytes: %+v", len(data), header)
-	flows, err = template.Apply(buf)
+	flows, err = p.flowTemplate.Apply(buf)
 	for i := range flows {
-		flows[i].Timestamp = header.Timestamp
+		flows[i].Exporter = metadata
+		flows[i].Timestamp = timestamp
 	}
 	return flows
 }
@@ -89,8 +100,8 @@ func (p NetflowV5Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.
 type PacketHeader struct {
 	Version   uint16
 	Count     uint16
-	SysUptime time.Duration // 32 bit milliseconds
-	Timestamp time.Time     // 32 bit seconds + 32 bit nanoseconds
+	SysUptime uint32    // 32 bit milliseconds
+	Timestamp time.Time // 32 bit seconds + 32 bit nanoseconds
 }
 
 func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
@@ -102,8 +113,23 @@ func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
 	header = PacketHeader{
 		Version:   binary.BigEndian.Uint16(arr[:2]),
 		Count:     binary.BigEndian.Uint16(arr[2:4]),
-		SysUptime: time.Duration(binary.BigEndian.Uint32(arr[4:8])) * time.Millisecond,
+		SysUptime: binary.BigEndian.Uint32(arr[4:8]),
 		Timestamp: time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))),
 	}
 	return header, nil
+}
+
+func readV1Header(buf *bytes.Buffer, source net.Addr) (count int, ts time.Time, metadata common.MapStr, err error) {
+	header, err := ReadPacketHeader(buf)
+	if err != nil {
+		return count, ts, metadata, err
+	}
+	count = int(header.Count)
+	metadata = common.MapStr{
+		"version":      header.Version,
+		"timestamp":    header.Timestamp,
+		"uptimeMillis": header.SysUptime,
+		"address":      source.String(),
+	}
+	return count, header.Timestamp, metadata, nil
 }

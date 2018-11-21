@@ -105,6 +105,10 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 		}
 		flows = append(flows, f...)
 	}
+	metadata := header.ExporterMetadata(source)
+	for idx := range flows {
+		flows[idx].Exporter = metadata
+	}
 	return flows
 }
 

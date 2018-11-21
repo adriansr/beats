@@ -5,8 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
 
@@ -36,7 +39,7 @@ func (_ DecoderV9) ReadPacketHeader(buf *bytes.Buffer) (PacketHeader, error) {
 		Version:    binary.BigEndian.Uint16(data[:2]),
 		Count:      binary.BigEndian.Uint16(data[2:4]),
 		SysUptime:  binary.BigEndian.Uint32(data[4:8]),
-		UnixSecs:   binary.BigEndian.Uint32(data[8:12]),
+		UnixSecs:   time.Unix(int64(binary.BigEndian.Uint32(data[8:12])), 0),
 		SequenceNo: binary.BigEndian.Uint32(data[12:16]),
 		SourceID:   binary.BigEndian.Uint32(data[16:20]),
 	}, nil
@@ -150,8 +153,10 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Templ
 }
 
 type PacketHeader struct {
-	Version, Count                            uint16
-	SysUptime, UnixSecs, SequenceNo, SourceID uint32
+	Version, Count       uint16
+	SysUptime            uint32
+	UnixSecs             time.Time
+	SequenceNo, SourceID uint32
 }
 
 type SetHeader struct {
@@ -167,4 +172,14 @@ func (h SetHeader) BodyLength() int {
 
 func (h SetHeader) IsPadding() bool {
 	return h.SetID == 0 && h.Length == 0
+}
+
+func (h PacketHeader) ExporterMetadata(source net.Addr) common.MapStr {
+	return common.MapStr{
+		"version":   h.Version,
+		"timestamp": h.UnixSecs,
+		"uptime":    h.SysUptime,
+		"address":   source.String(),
+		"sourceId":  h.SourceID,
+	}
 }

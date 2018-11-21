@@ -7,10 +7,8 @@ import (
 )
 
 const (
-	ProtocolName             = "ipfix"
-	ProtocolID        uint16 = 10
-	TemplateFlowsetID        = 2
-	TemplateOptionsID        = 3
+	ProtocolName        = "ipfix"
+	ProtocolID   uint16 = 10
 )
 
 type IPFixProtocol struct {

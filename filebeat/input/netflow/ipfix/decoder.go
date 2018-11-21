@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
@@ -30,7 +31,7 @@ func (_ DecoderIPFix) ReadPacketHeader(buf *bytes.Buffer) (v9.PacketHeader, erro
 	return v9.PacketHeader{
 		Version:    binary.BigEndian.Uint16(data[:2]),
 		Count:      binary.BigEndian.Uint16(data[2:4]),
-		UnixSecs:   binary.BigEndian.Uint32(data[4:8]),
+		UnixSecs:   time.Unix(int64(binary.BigEndian.Uint32(data[4:8])), 0),
 		SequenceNo: binary.BigEndian.Uint32(data[8:12]),
 		SourceID:   binary.BigEndian.Uint32(data[12:16]),
 	}, nil
