@@ -99,15 +99,18 @@ func (t *OptionsTemplate) Apply(data *bytes.Buffer) ([]flow.Flow, error) {
 }
 
 func PopulateFieldMap(dest common.MapStr, fields []FieldTemplate, buf []byte, pos int) (int, error) {
-	var err error
 	limit := len(buf)
 	for _, field := range fields {
 		if pos >= limit {
 			return 0, errors.New("template fields overflow record")
 		}
 		if fieldInfo := field.Info; fieldInfo != nil {
-			if dest[fieldInfo.Name], err = fieldInfo.Decoder.Decode(buf[pos : pos+int(field.Length)]); err != nil {
+			value, err := fieldInfo.Decoder.Decode(buf[pos : pos+int(field.Length)])
+			if err != nil {
 				logp.Warn("Unable to decode field '%s' in template", fieldInfo.Name)
+			}
+			if len(fieldInfo.Name) > 0 {
+				dest[fieldInfo.Name] = value
 			}
 		}
 		pos += int(field.Length)

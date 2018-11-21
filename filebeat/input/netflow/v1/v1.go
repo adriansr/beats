@@ -1,4 +1,4 @@
-package v5
+package v1
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	ProtocolName        = "v5"
-	LogSelector         = "netflow-v5"
-	ProtocolID   uint16 = 5
+	ProtocolName        = "v1"
+	LogSelector         = "netflow-v1"
+	ProtocolID   uint16 = 1
 )
 
 var template = v9.RecordTemplate{
@@ -33,15 +33,11 @@ var template = v9.RecordTemplate{
 		{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
 		{Length: 2, Info: &fields.Field{Name: "destinationTransportPort", Decoder: fields.Unsigned16}},
-		{Length: 1, Info: &fields.Field{Decoder: fields.Unsigned8}}, // Padding
-		{Length: 1, Info: &fields.Field{Name: "tcpControlBits", Decoder: fields.Unsigned8}},
+		{Length: 2, Info: &fields.Field{Decoder: fields.Unsigned16}}, // Padding
 		{Length: 1, Info: &fields.Field{Name: "protocolIdentifier", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
-		{Length: 2, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned16}},
-		{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned16}},
-		{Length: 1, Info: &fields.Field{Name: "sourceIPv4PrefixLength", Decoder: fields.Unsigned8}},
-		{Length: 1, Info: &fields.Field{Name: "destinationIPv4PrefixLength", Decoder: fields.Unsigned8}},
-		{Length: 2, Info: &fields.Field{Decoder: fields.Unsigned16}}, // Padding
+		{Length: 1, Info: &fields.Field{Name: "tcpControlBits", Decoder: fields.Unsigned8}},
+		{Length: 7, Info: &fields.Field{Decoder: fields.OctetArray}}, // Padding
 	},
 	TotalLength: 48,
 }
@@ -91,31 +87,23 @@ func (p NetflowV5Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.
 }
 
 type PacketHeader struct {
-	Version          uint16
-	Count            uint16
-	SysUptime        time.Duration // 32 bit milliseconds
-	Timestamp        time.Time     // 32 bit seconds + 32 bit nanoseconds
-	FlowSequence     uint32
-	EngineType       uint8
-	EngineID         uint8
-	SamplingInterval uint16
+	Version   uint16
+	Count     uint16
+	SysUptime time.Duration // 32 bit milliseconds
+	Timestamp time.Time     // 32 bit seconds + 32 bit nanoseconds
 }
 
 func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
-	var arr [24]byte
+	var arr [16]byte
 	if n, err := buf.Read(arr[:]); err != nil || n != len(arr) {
 		return header, err
 	}
 	timestamp := binary.BigEndian.Uint64(arr[8:16])
 	header = PacketHeader{
-		Version:          binary.BigEndian.Uint16(arr[:2]),
-		Count:            binary.BigEndian.Uint16(arr[2:4]),
-		SysUptime:        time.Duration(binary.BigEndian.Uint32(arr[4:8])) * time.Millisecond,
-		Timestamp:        time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))),
-		FlowSequence:     binary.BigEndian.Uint32(arr[16:20]),
-		EngineType:       arr[20],
-		EngineID:         arr[21],
-		SamplingInterval: binary.BigEndian.Uint16(arr[22:]),
+		Version:   binary.BigEndian.Uint16(arr[:2]),
+		Count:     binary.BigEndian.Uint16(arr[2:4]),
+		SysUptime: time.Duration(binary.BigEndian.Uint32(arr[4:8])) * time.Millisecond,
+		Timestamp: time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))),
 	}
 	return header, nil
 }
