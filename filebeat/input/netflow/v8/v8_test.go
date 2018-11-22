@@ -69,6 +69,7 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 		aggregation uint8
 		packet      []uint16
 		expected    flow.Flow
+		empty       bool
 	}{
 		{
 			name:        "RouterAS",
@@ -604,16 +605,33 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "Unknown",
+			aggregation: 0xff,
+			packet: []uint16{
+				// Header
+				8, 1, 1, 2, 23543, 5935, 15070, 26801, 0x1234, 0x5678, 258, 0, 0, 0,
+				// Flow record
+				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
+				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
+				0x7181, 0x91a1, 0xb1c1, 0xd1e1, 0x2f2e, 0x2d2c,
+			},
+			empty: true,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			raw := test.MakePacket(testCase.packet)
 			raw[22] = testCase.aggregation
 			flow := proto.OnPacket(raw, address)
-			if !assert.Len(t, flow, 1) {
-				return
+			if !testCase.empty {
+				if !assert.Len(t, flow, 1) {
+					return
+				}
+				t.Logf("fields: %+v", flow[0].Fields)
+				test.AssertFlowsEqual(t, testCase.expected, flow[0])
+			} else {
+				assert.Empty(t, flow)
 			}
-			t.Logf("fields: %+v", flow[0].Fields)
-			test.AssertFlowsEqual(t, testCase.expected, flow[0])
 		})
 	}
 }

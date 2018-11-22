@@ -20,6 +20,7 @@ package v8
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"net"
 	"time"
 
@@ -371,6 +372,9 @@ type PacketHeader struct {
 func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
 	var arr [28]byte
 	if n, err := buf.Read(arr[:]); err != nil || n != len(arr) {
+		if err == nil {
+			err = io.EOF
+		}
 		return header, err
 	}
 	timestamp := binary.BigEndian.Uint64(arr[8:16])
