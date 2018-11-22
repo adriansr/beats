@@ -25,11 +25,10 @@ var (
 )
 
 type NetflowV9Protocol struct {
-	decoder   Decoder
-	logger    *logp.Logger
-	sequences map[string]uint32
-	session   SessionMap
-	done      chan struct{}
+	decoder Decoder
+	logger  *logp.Logger
+	Session SessionMap
+	done    chan struct{}
 }
 
 var _ registry.Protocol = (*NetflowV9Protocol)(nil)
@@ -44,10 +43,9 @@ func New() registry.Protocol {
 
 func NewProtocolWithDecoder(decoder Decoder, logger *logp.Logger) *NetflowV9Protocol {
 	return &NetflowV9Protocol{
-		decoder:   decoder,
-		sequences: make(map[string]uint32),
-		session:   NewSessionMap(),
-		logger:    logger,
+		decoder: decoder,
+		Session: NewSessionMap(),
+		logger:  logger,
 	}
 }
 
@@ -57,7 +55,7 @@ func (_ NetflowV9Protocol) ID() uint16 {
 
 func (p *NetflowV9Protocol) Start() error {
 	p.done = make(chan struct{})
-	go p.session.CleanupLoop(time.Millisecond*5000, p.done, p.logger)
+	go p.Session.CleanupLoop(time.Millisecond*5000, p.done, p.logger)
 	return nil
 }
 
@@ -75,16 +73,14 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 	}
 	p.logger.Debugf("Received %d bytes from %s: %+v", len(data), source, header)
 
-	session := p.session.GetOrCreate(MakeSessionKey(source))
+	session := p.Session.GetOrCreate(MakeSessionKey(source))
 	remote := source.String()
 
-	if lastSeq, found := p.sequences[remote]; found {
-		if diff := int32(lastSeq - header.SequenceNo); diff > MaxSequenceDifference {
-			session.Reset()
-			p.logger.Warnf("Session reset from %s (seq=%d last=%d)", remote, header.SequenceNo, lastSeq)
-		}
+	if diff := int64(session.lastSequence - header.SequenceNo); diff > MaxSequenceDifference {
+		session.Reset()
+		p.logger.Warnf("Session %s reset (sequence=%d last=%d)", remote, header.SequenceNo, session.lastSequence)
 	}
-	p.sequences[remote] = header.SequenceNo
+	session.lastSequence = header.SequenceNo
 
 	for {
 		set, err := p.decoder.ReadSetHeader(buf)
@@ -108,6 +104,7 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow
 	metadata := header.ExporterMetadata(source)
 	for idx := range flows {
 		flows[idx].Exporter = metadata
+		flows[idx].Timestamp = header.UnixSecs
 	}
 	return flows
 }

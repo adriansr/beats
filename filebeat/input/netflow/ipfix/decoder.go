@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
+	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
 )
 
@@ -31,13 +32,13 @@ func (_ DecoderIPFix) ReadPacketHeader(buf *bytes.Buffer) (v9.PacketHeader, erro
 	return v9.PacketHeader{
 		Version:    binary.BigEndian.Uint16(data[:2]),
 		Count:      binary.BigEndian.Uint16(data[2:4]),
-		UnixSecs:   time.Unix(int64(binary.BigEndian.Uint32(data[4:8])), 0),
+		UnixSecs:   time.Unix(int64(binary.BigEndian.Uint32(data[4:8])), 0).UTC(),
 		SequenceNo: binary.BigEndian.Uint32(data[8:12]),
 		SourceID:   binary.BigEndian.Uint32(data[12:16]),
 	}, nil
 }
 
-func (d DecoderIPFix) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]v9.Template, error) {
+func (d DecoderIPFix) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error) {
 	switch setID {
 	case TemplateFlowSetID:
 		return v9.ReadTemplateFlowSet(d, buf)
@@ -65,7 +66,7 @@ func (d DecoderIPFix) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, 
 	return field, length, nil
 }
 
-func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []v9.Template, err error) {
+func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []template.Template, err error) {
 	var header [6]byte
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
@@ -74,7 +75,7 @@ func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates [
 			}
 			return nil, err
 		}
-		template := &v9.OptionsTemplate{
+		template := &template.OptionsTemplate{
 			ID: binary.BigEndian.Uint16(header[:2]),
 		}
 		totalCount := int(binary.BigEndian.Uint16(header[2:4]))

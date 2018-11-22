@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
@@ -81,8 +82,8 @@ func TestSessionMap_GetOrCreate(t *testing.T) {
 	})
 }
 
-func testTemplate(id uint16) Template {
-	return &RecordTemplate{
+func testTemplate(id uint16) template.Template {
+	return &template.RecordTemplate{
 		ID: id,
 	}
 }
@@ -130,24 +131,24 @@ func TestSessionMap_Cleanup(t *testing.T) {
 	sm.cleanup()
 
 	// After a cleanup, first session still exists
-	assert.Len(t, sm.sessions, 1)
+	assert.Len(t, sm.Sessions, 1)
 
 	// Add new session
 	k2 := makeSessionKey(t, "127.0.0.1:1235")
 	s2 := sm.GetOrCreate(k2)
 	assert.NotNil(t, s2)
-	assert.Len(t, sm.sessions, 2)
+	assert.Len(t, sm.Sessions, 2)
 
 	// After a new cleanup, s1 is removed because it was not accessed
 	// since the last cleanup.
 	sm.cleanup()
-	assert.Len(t, sm.sessions, 1)
+	assert.Len(t, sm.Sessions, 1)
 
-	_, found := sm.sessions[k1]
+	_, found := sm.Sessions[k1]
 	assert.False(t, found)
 
 	// s2 is still there
-	_, found = sm.sessions[k2]
+	_, found = sm.Sessions[k2]
 	assert.True(t, found)
 
 	// Access s2 again
@@ -156,13 +157,13 @@ func TestSessionMap_Cleanup(t *testing.T) {
 	// Cleanup should keep s2 because it has been used since the last cleanup
 	sm.cleanup()
 
-	assert.Len(t, sm.sessions, 1)
-	s2b, found := sm.sessions[k2]
+	assert.Len(t, sm.Sessions, 1)
+	s2b, found := sm.Sessions[k2]
 	assert.True(t, found)
 	assert.True(t, s2 == s2b)
 
 	sm.cleanup()
-	assert.Empty(t, sm.sessions)
+	assert.Empty(t, sm.Sessions)
 }
 
 func TestSessionMap_CleanupLoop(t *testing.T) {
@@ -178,7 +179,7 @@ func TestSessionMap_CleanupLoop(t *testing.T) {
 
 	for found := true; found; {
 		sm.RLock()
-		_, found = sm.sessions[key]
+		_, found = sm.Sessions[key]
 		sm.RUnlock()
 	}
 	close(done)

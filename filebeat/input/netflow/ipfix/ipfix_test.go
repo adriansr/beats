@@ -3,8 +3,14 @@ package ipfix
 import (
 	"encoding/hex"
 	"testing"
+	"time"
 
+	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
+	"github.com/elastic/beats/filebeat/input/netflow/v9"
+	"github.com/elastic/beats/libbeat/common"
+	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,12 +35,149 @@ func TestMessageWithOptions(t *testing.T) {
 	raw, err := hex.DecodeString(rawString)
 	assert.NoError(t, err)
 
+	captureTimeMillis, err := time.Parse(time.RFC3339, "2018-11-20T16:27:13.249Z")
+	if !assert.NoError(t, err) {
+		t.Fatal(err)
+	}
+	captureTime := time.Unix(captureTimeMillis.Unix(), 0).UTC()
+	expected := flow.Flow{
+		Timestamp: captureTime,
+		Fields: common.MapStr{
+			"type": "options",
+			"scope": common.MapStr{
+				"meteringProcessId": uint64(59670),
+			},
+			"options": common.MapStr{
+				"samplingPacketInterval":     uint64(1),
+				"samplingPacketSpace":        uint64(99),
+				"selectorAlgorithm":          uint64(1),
+				"systemInitTimeMilliseconds": captureTimeMillis,
+			},
+		},
+		Exporter: common.MapStr{
+			"address":   "127.0.0.1:1234",
+			"sourceId":  uint64(0),
+			"timestamp": captureTime,
+			"uptime":    uint64(0),
+			"version":   uint64(10),
+		},
+	}
 	proto := New()
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:1234"))
 	if assert.Len(t, flows, 7) {
+		test.AssertFlowsEqual(t, expected, flows[0])
 		assert.Equal(t, "options", flows[0].Fields["type"])
 		for i := 1; i < len(flows); i++ {
 			assert.Equal(t, "flow", flows[i].Fields["type"])
 		}
 	}
+}
+
+func TestOptionTemplates(t *testing.T) {
+	logp.TestingSetup()
+	addr := test.MakeAddress(t, "127.0.0.1:12345")
+	key := v9.MakeSessionKey(addr)
+
+	t.Run("Single options template", func(t *testing.T) {
+		proto := New()
+		flows := proto.OnPacket(test.MakePacket([]uint16{
+			// Header
+			// Version, Count, Ts, SeqNo, Source
+			10, 1, 11, 11, 22, 22, 0, 1234,
+			// Set #1 (options template)
+			3, 24, /*len of set*/
+			999, 3 /*total field count */, 1, /*scope field count*/
+			1, 4, // Fields
+			2, 4,
+			3, 4,
+			0, // Padding
+		}), addr)
+		assert.Empty(t, flows)
+
+		ipfix, ok := proto.(*IPFixProtocol)
+		assert.True(t, ok)
+		v9proto := ipfix.NetflowV9Protocol
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		s, found := v9proto.Session.Sessions[key]
+		assert.True(t, found)
+		assert.Len(t, s.Templates, 1)
+		otp := s.GetTemplate(1234, 999)
+		assert.NotNil(t, otp)
+		_, ok = otp.(*template.OptionsTemplate)
+		assert.True(t, ok)
+	})
+
+	t.Run("Multiple options template", func(t *testing.T) {
+		proto := New()
+		raw := test.MakePacket([]uint16{
+			// Header
+			// Version, Count, Ts, SeqNo, Source
+			10, 2, 11, 11, 22, 22, 0, 1234,
+			// Set #1 (options template)
+			3, 22 + 26, /*len of set*/
+			999, 3 /*total field count*/, 2, /*scope field count*/
+			1, 4, // Fields
+			2, 4,
+			3, 4,
+			998, 5, 3,
+			1, 4,
+			2, 2,
+			3, 3,
+			4, 1,
+			5, 1,
+			0,
+		})
+		flows := proto.OnPacket(raw, addr)
+		assert.Empty(t, flows)
+
+		ipfix, ok := proto.(*IPFixProtocol)
+		v9proto := ipfix.NetflowV9Protocol
+		assert.True(t, ok)
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		s, found := v9proto.Session.Sessions[key]
+		assert.True(t, found)
+		assert.Len(t, s.Templates, 2)
+		for _, id := range []uint16{998, 999} {
+			otp := s.GetTemplate(1234, id)
+			assert.NotNil(t, otp)
+			_, ok = otp.(*template.OptionsTemplate)
+			assert.True(t, ok)
+		}
+	})
+
+	t.Run("records discarded", func(t *testing.T) {
+		proto := New()
+		raw := test.MakePacket([]uint16{
+			// Header
+			// Version, Count, Ts, SeqNo, Source
+			10, 1, 11, 11, 22, 22, 0, 1234,
+			// Set #1 (options template)
+			9998, 8, /*len of set*/
+			1, 2,
+		})
+		flows := proto.OnPacket(raw, addr)
+		assert.Empty(t, flows)
+
+		ipfix, ok := proto.(*IPFixProtocol)
+		assert.True(t, ok)
+		v9proto := ipfix.NetflowV9Protocol
+
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		s, found := v9proto.Session.Sessions[key]
+		assert.True(t, found)
+		assert.Len(t, s.Templates, 0)
+
+		raw = test.MakePacket([]uint16{
+			// Header
+			// Version, Count, Ts, SeqNo, Source
+			10, 1, 11, 11, 22, 22, 0, 1234,
+			// Set #1 (options template)
+			3, 10, /*len of set*/
+			9998, 0, 0,
+		})
+		flows = proto.OnPacket(raw, addr)
+		assert.Empty(t, flows)
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		assert.Len(t, s.Templates, 1)
+	})
 }

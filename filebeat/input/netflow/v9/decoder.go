@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
+	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -21,7 +22,7 @@ const (
 type Decoder interface {
 	ReadPacketHeader(*bytes.Buffer) (PacketHeader, error)
 	ReadSetHeader(*bytes.Buffer) (SetHeader, error)
-	ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]Template, error)
+	ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error)
 	ReadFieldDefinition(*bytes.Buffer) (field fields.Key, length uint16, err error)
 }
 
@@ -57,7 +58,7 @@ func (_ DecoderV9) ReadSetHeader(buf *bytes.Buffer) (SetHeader, error) {
 	}, nil
 }
 
-func (d DecoderV9) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]Template, error) {
+func (d DecoderV9) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error) {
 	switch setID {
 	case TemplateFlowSetID:
 		return ReadTemplateFlowSet(d, buf)
@@ -77,14 +78,14 @@ func (d DecoderV9) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, len
 	return field, binary.BigEndian.Uint16(row[2:]), nil
 }
 
-func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []FieldTemplate, totalLength int, err error) {
-	readFields = make([]FieldTemplate, count)
+func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []template.FieldTemplate, totalLength int, err error) {
+	readFields = make([]template.FieldTemplate, count)
 	for i := 0; i < count; i++ {
 		key, length, err := d.ReadFieldDefinition(buf)
 		if err != nil {
 			return nil, 0, ErrNoData
 		}
-		field := FieldTemplate{
+		field := template.FieldTemplate{
 			Length: length,
 		}
 		totalLength += int(field.Length)
@@ -103,7 +104,7 @@ func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []FieldTemp
 	return readFields, totalLength, nil
 }
 
-func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Template, err error) {
+func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Template, err error) {
 	var row [4]byte
 	for {
 		if buf.Len() < 4 {
@@ -112,7 +113,7 @@ func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Template, er
 		if n, err := buf.Read(row[:]); err != nil || n != len(row) {
 			return nil, ErrNoData
 		}
-		template := &RecordTemplate{
+		template := &template.RecordTemplate{
 			ID: binary.BigEndian.Uint16(row[:2]),
 		}
 		if template.ID < 256 {
@@ -128,7 +129,7 @@ func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Template, er
 	return templates, nil
 }
 
-func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Template, err error) {
+func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Template, err error) {
 	var header [6]byte
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
@@ -147,7 +148,7 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Templ
 		if scopeLen&3 != 0 || optsLen&3 != 0 {
 			return nil, fmt.Errorf("odd length for options template. scope=%d options=%d", scopeLen, optsLen)
 		}
-		template := &OptionsTemplate{
+		template := &template.OptionsTemplate{
 			ID: tID,
 		}
 		template.Scope, template.TotalLength, err = ReadFields(d, buf, scopeLen/4)
@@ -186,10 +187,10 @@ func (h SetHeader) IsPadding() bool {
 
 func (h PacketHeader) ExporterMetadata(source net.Addr) common.MapStr {
 	return common.MapStr{
-		"version":   h.Version,
+		"version":   uint64(h.Version),
 		"timestamp": h.UnixSecs,
-		"uptime":    h.SysUptime,
+		"uptime":    uint64(h.SysUptime),
 		"address":   source.String(),
-		"sourceId":  h.SourceID,
+		"sourceId":  uint64(h.SourceID),
 	}
 }

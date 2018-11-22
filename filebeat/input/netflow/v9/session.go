@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/libbeat/common/atomic"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -21,14 +22,15 @@ type TemplateKey struct {
 }
 
 type TemplateWrapper struct {
-	Template Template
+	Template template.Template
 	Delete   atomic.Bool
 }
 
 type SessionState struct {
 	sync.RWMutex
-	Templates map[TemplateKey]*TemplateWrapper
-	Delete    atomic.Bool
+	Templates    map[TemplateKey]*TemplateWrapper
+	lastSequence uint32
+	Delete       atomic.Bool
 }
 
 func NewSession() *SessionState {
@@ -37,14 +39,14 @@ func NewSession() *SessionState {
 	}
 }
 
-func (s *SessionState) AddTemplate(sourceId uint32, t Template) {
+func (s *SessionState) AddTemplate(sourceId uint32, t template.Template) {
 	key := TemplateKey{sourceId, t.TemplateID()}
 	s.Lock()
 	defer s.Unlock()
 	s.Templates[key] = &TemplateWrapper{Template: t}
 }
 
-func (s *SessionState) GetTemplate(sourceId uint32, id uint16) (template Template) {
+func (s *SessionState) GetTemplate(sourceId uint32, id uint16) (template template.Template) {
 	key := TemplateKey{sourceId, id}
 	s.RLock()
 	defer s.RUnlock()
@@ -88,27 +90,27 @@ func (s *SessionState) Reset() {
 
 type SessionMap struct {
 	sync.RWMutex
-	sessions map[SessionKey]*SessionState
+	Sessions map[SessionKey]*SessionState
 }
 
 func NewSessionMap() SessionMap {
 	return SessionMap{
-		sessions: make(map[SessionKey]*SessionState),
+		Sessions: make(map[SessionKey]*SessionState),
 	}
 }
 
 func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 	m.RLock()
-	session, found := m.sessions[key]
+	session, found := m.Sessions[key]
 	if found {
 		session.Delete.Store(false)
 	}
 	m.RUnlock()
 	if !found {
 		m.Lock()
-		if session, found = m.sessions[key]; !found {
+		if session, found = m.Sessions[key]; !found {
 			session = NewSession()
-			m.sessions[key] = session
+			m.Sessions[key] = session
 		}
 		m.Unlock()
 	}
@@ -118,8 +120,8 @@ func (m *SessionMap) GetOrCreate(key SessionKey) *SessionState {
 func (m *SessionMap) cleanup() (aliveSession int, removedSession int, aliveTemplates int, removedTemplates int) {
 	var toDelete []SessionKey
 	m.RLock()
-	total := len(m.sessions)
-	for key, session := range m.sessions {
+	total := len(m.Sessions)
+	for key, session := range m.Sessions {
 		a, r := session.ExpireTemplates()
 		aliveTemplates += a
 		removedTemplates += r
@@ -130,10 +132,10 @@ func (m *SessionMap) cleanup() (aliveSession int, removedSession int, aliveTempl
 	m.RUnlock()
 	if len(toDelete) > 0 {
 		m.Lock()
-		total = len(m.sessions)
+		total = len(m.Sessions)
 		for _, key := range toDelete {
-			if session, found := m.sessions[key]; found && session.Delete.Load() {
-				delete(m.sessions, key)
+			if session, found := m.Sessions[key]; found && session.Delete.Load() {
+				delete(m.Sessions, key)
 				removedSession++
 			}
 		}

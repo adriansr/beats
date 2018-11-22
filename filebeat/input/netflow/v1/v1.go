@@ -10,7 +10,7 @@ import (
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
 	"github.com/elastic/beats/filebeat/input/netflow/flow"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
-	"github.com/elastic/beats/filebeat/input/netflow/v9"
+	template2 "github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -20,16 +20,16 @@ const (
 	ProtocolID   uint16 = 1
 )
 
-var template = v9.RecordTemplate{
+var template = template2.RecordTemplate{
 	ID: 0,
-	Fields: []v9.FieldTemplate{
+	Fields: []template2.FieldTemplate{
 		{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
 		{Length: 4, Info: &fields.Field{Name: "destinationIPv4Address", Decoder: fields.Ipv4Address}},
 		{Length: 4, Info: &fields.Field{Name: "ipNextHopIPv4Address", Decoder: fields.Ipv4Address}},
 		{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned16}},
 		{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned16}},
-		{Length: 4, Info: &fields.Field{Name: "packetTotalCount", Decoder: fields.Unsigned32}},
-		{Length: 4, Info: &fields.Field{Name: "octetTotalCount", Decoder: fields.Unsigned32}},
+		{Length: 4, Info: &fields.Field{Name: "packetDeltaCount", Decoder: fields.Unsigned32}},
+		{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned32}},
 		{Length: 4, Info: &fields.Field{Name: "flowStartSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
@@ -47,7 +47,7 @@ type ReadHeaderFn func(*bytes.Buffer, net.Addr) (int, time.Time, common.MapStr, 
 
 type NetflowProtocol struct {
 	logger       *logp.Logger
-	flowTemplate v9.Template
+	flowTemplate template2.Template
 	version      uint16
 	readHeader   ReadHeaderFn
 }
@@ -60,7 +60,7 @@ func New() registry.Protocol {
 	return NewProtocol(ProtocolID, &template, readV1Header)
 }
 
-func NewProtocol(version uint16, template v9.Template, readHeader ReadHeaderFn) registry.Protocol {
+func NewProtocol(version uint16, template template2.Template, readHeader ReadHeaderFn) registry.Protocol {
 	return &NetflowProtocol{
 		logger:       logp.NewLogger(fmt.Sprintf("netflow-v%d", version)),
 		flowTemplate: template,

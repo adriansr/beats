@@ -1,12 +1,12 @@
 package v9
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
@@ -88,19 +88,11 @@ func TestFlowsAndTemplatesPacket(t *testing.T) {
 	v9proto, ok := proto.(*NetflowV9Protocol)
 	assert.True(t, ok)
 
-	assert.Len(t, v9proto.session.sessions, 1)
+	assert.Len(t, v9proto.Session.Sessions, 1)
 	key := MakeSessionKey(addr)
-	s, found := v9proto.session.sessions[key]
+	s, found := v9proto.Session.Sessions[key]
 	assert.True(t, found)
 	assert.Len(t, s.Templates, 4)
-}
-
-func mkPacket(data []uint16) []byte {
-	r := make([]byte, len(data)*2)
-	for idx, val := range data {
-		binary.BigEndian.PutUint16(r[idx*2:(idx+1)*2], val)
-	}
-	return r
 }
 
 func TestOptionTemplates(t *testing.T) {
@@ -110,7 +102,7 @@ func TestOptionTemplates(t *testing.T) {
 
 	t.Run("Single options template", func(t *testing.T) {
 		proto := New()
-		flows := proto.OnPacket(mkPacket([]uint16{
+		flows := proto.OnPacket(test.MakePacket([]uint16{
 			// Header
 			// Version, Count, Uptime, Ts, SeqNo, Source
 			9, 1, 11, 11, 22, 22, 33, 33, 0, 1234,
@@ -127,19 +119,19 @@ func TestOptionTemplates(t *testing.T) {
 		v9proto, ok := proto.(*NetflowV9Protocol)
 		assert.True(t, ok)
 
-		assert.Len(t, v9proto.session.sessions, 1)
-		s, found := v9proto.session.sessions[key]
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		s, found := v9proto.Session.Sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 1)
 		otp := s.GetTemplate(1234, 999)
 		assert.NotNil(t, otp)
-		_, ok = otp.(*OptionsTemplate)
+		_, ok = otp.(*template.OptionsTemplate)
 		assert.True(t, ok)
 	})
 
 	t.Run("Multiple options template", func(t *testing.T) {
 		proto := New()
-		raw := mkPacket([]uint16{
+		raw := test.MakePacket([]uint16{
 			// Header
 			// Version, Count, Uptime, Ts, SeqNo, Source
 			9, 2, 11, 11, 22, 22, 33, 33, 0, 1234,
@@ -162,21 +154,21 @@ func TestOptionTemplates(t *testing.T) {
 
 		v9proto, ok := proto.(*NetflowV9Protocol)
 		assert.True(t, ok)
-		assert.Len(t, v9proto.session.sessions, 1)
-		s, found := v9proto.session.sessions[key]
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		s, found := v9proto.Session.Sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 2)
 		for _, id := range []uint16{998, 999} {
 			otp := s.GetTemplate(1234, id)
 			assert.NotNil(t, otp)
-			_, ok = otp.(*OptionsTemplate)
+			_, ok = otp.(*template.OptionsTemplate)
 			assert.True(t, ok)
 		}
 	})
 
 	t.Run("records discarded", func(t *testing.T) {
 		proto := New()
-		raw := mkPacket([]uint16{
+		raw := test.MakePacket([]uint16{
 			// Header
 			// Version, Count, Uptime, Ts, SeqNo, Source
 			9, 1, 11, 11, 22, 22, 33, 33, 0, 1234,
@@ -190,12 +182,12 @@ func TestOptionTemplates(t *testing.T) {
 		v9proto, ok := proto.(*NetflowV9Protocol)
 		assert.True(t, ok)
 
-		assert.Len(t, v9proto.session.sessions, 1)
-		s, found := v9proto.session.sessions[key]
+		assert.Len(t, v9proto.Session.Sessions, 1)
+		s, found := v9proto.Session.Sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 0)
 
-		raw = mkPacket([]uint16{
+		raw = test.MakePacket([]uint16{
 			// Header
 			// Version, Count, Uptime, Ts, SeqNo, Source
 			9, 1, 11, 11, 22, 22, 33, 33, 0, 1234,
@@ -205,7 +197,7 @@ func TestOptionTemplates(t *testing.T) {
 		})
 		flows = proto.OnPacket(raw, addr)
 		assert.Empty(t, flows)
-		assert.Len(t, v9proto.session.sessions, 1)
+		assert.Len(t, v9proto.Session.Sessions, 1)
 		assert.Len(t, s.Templates, 1)
 	})
 }
