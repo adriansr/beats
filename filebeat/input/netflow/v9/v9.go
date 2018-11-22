@@ -93,7 +93,7 @@ func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []reco
 	session := p.Session.GetOrCreate(MakeSessionKey(source))
 	remote := source.String()
 
-	if diff := int64(session.lastSequence - header.SequenceNo); diff > MaxSequenceDifference {
+	if header.SequenceNo < session.lastSequence && header.SequenceNo-session.lastSequence > MaxSequenceDifference {
 		session.Reset()
 		p.logger.Warnf("Session %s reset (sequence=%d last=%d)", remote, header.SequenceNo, session.lastSequence)
 	}
