@@ -138,16 +138,26 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []Templ
 			return nil, err
 		}
 		tID := binary.BigEndian.Uint16(header[:2])
-		scopeLen := binary.BigEndian.Uint16(header[2:4])
-		optsLen := binary.BigEndian.Uint16(header[4:])
+		scopeLen := int(binary.BigEndian.Uint16(header[2:4]))
+		optsLen := int(binary.BigEndian.Uint16(header[4:]))
 		length := optsLen + scopeLen
 		if buf.Len() < int(length) {
 			return nil, ErrNoData
 		}
-		// Skip contents of template (ignored)
-		// TODO read template
-		buf.Next(int(length))
-		templates = append(templates, &OptionsTemplate{ID: tID})
+		if scopeLen&3 != 0 || optsLen&3 != 0 {
+			return nil, fmt.Errorf("odd length for options template. scope=%d options=%d", scopeLen, optsLen)
+		}
+		template := &OptionsTemplate{
+			ID: tID,
+		}
+		template.Scope, template.TotalLength, err = ReadFields(d, buf, scopeLen/4)
+		if err != nil {
+			return nil, err
+		}
+		var extraLen int
+		template.Options, extraLen, err = ReadFields(d, buf, optsLen/4)
+		template.TotalLength += extraLen
+		templates = append(templates, template)
 	}
 	return templates, nil
 }

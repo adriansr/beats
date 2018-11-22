@@ -116,7 +116,7 @@ func TestOptionTemplates(t *testing.T) {
 			9, 1, 11, 11, 22, 22, 33, 33, 0, 1234,
 			// Set #1 (options template)
 			1, 24, /*len of set*/
-			999, 4 /*scope len*/, 10, /*opts len*/
+			999, 4 /*scope len*/, 8, /*opts len*/
 			1, 4, // Fields
 			2, 4,
 			3, 4,
@@ -142,7 +142,7 @@ func TestOptionTemplates(t *testing.T) {
 		raw := mkPacket([]uint16{
 			// Header
 			// Version, Count, Uptime, Ts, SeqNo, Source
-			9, 1, 11, 11, 22, 22, 33, 33, 0, 1234,
+			9, 2, 11, 11, 22, 22, 33, 33, 0, 1234,
 			// Set #1 (options template)
 			1, 22 + 26, /*len of set*/
 			999, 4 /*scope len*/, 8, /*opts len*/
@@ -150,11 +150,11 @@ func TestOptionTemplates(t *testing.T) {
 			2, 4,
 			3, 4,
 			998, 8, 12,
-			1, 1,
+			1, 4,
 			2, 2,
 			3, 3,
-			4, 4,
-			5, 5,
+			4, 1,
+			5, 1,
 			0,
 		})
 		flows := proto.OnPacket(raw, addr)

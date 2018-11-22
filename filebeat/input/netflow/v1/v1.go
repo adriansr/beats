@@ -83,7 +83,6 @@ func (NetflowProtocol) Stop() error {
 
 func (p *NetflowProtocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
 	buf := bytes.NewBuffer(data)
-	// TODO: count
 	numFlows, timestamp, metadata, err := p.readHeader(buf, source)
 	if err != nil {
 		p.logger.Errorf("Failed parsing packet of %d bytes: %v", len(data), err)
