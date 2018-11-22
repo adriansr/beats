@@ -26,10 +26,10 @@ var template = template2.RecordTemplate{
 		{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
 		{Length: 4, Info: &fields.Field{Name: "destinationIPv4Address", Decoder: fields.Ipv4Address}},
 		{Length: 4, Info: &fields.Field{Name: "ipNextHopIPv4Address", Decoder: fields.Ipv4Address}},
-		{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned16}},
-		{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned16}},
-		{Length: 4, Info: &fields.Field{Name: "packetDeltaCount", Decoder: fields.Unsigned32}},
-		{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned32}},
+		{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
+		{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
+		{Length: 4, Info: &fields.Field{Name: "packetDeltaCount", Decoder: fields.Unsigned64}},
+		{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
 		{Length: 4, Info: &fields.Field{Name: "flowStartSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
@@ -37,7 +37,7 @@ var template = template2.RecordTemplate{
 		{Length: 2, Info: &fields.Field{Decoder: fields.Unsigned16}}, // Padding
 		{Length: 1, Info: &fields.Field{Name: "protocolIdentifier", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
-		{Length: 1, Info: &fields.Field{Name: "tcpControlBits", Decoder: fields.Unsigned8}},
+		{Length: 1, Info: &fields.Field{Name: "tcpControlBits", Decoder: fields.Unsigned16}},
 		{Length: 7, Info: &fields.Field{Decoder: fields.OctetArray}}, // Padding
 	},
 	TotalLength: 48,

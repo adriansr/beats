@@ -106,3 +106,7 @@ func TestNetflowProtocol_BadPacket(t *testing.T) {
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:59707"))
 	assert.Len(t, flows, 0)
 }
+
+func TestTemplate(t *testing.T) {
+	test.ValidateTemplate(t, template)
+}
