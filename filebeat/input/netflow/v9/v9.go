@@ -25,7 +25,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -81,7 +81,7 @@ func (p *NetflowV9Protocol) Stop() error {
 	return nil
 }
 
-func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
+func (p *NetflowV9Protocol) OnPacket(data []byte, source net.Addr) (flows []record.Record) {
 	buf := bytes.NewBuffer(data)
 	header, err := p.decoder.ReadPacketHeader(buf)
 	if err != nil {
@@ -130,7 +130,7 @@ func (p *NetflowV9Protocol) parseSet(
 	setID uint16,
 	session *SessionState,
 	sourceID uint32,
-	buf *bytes.Buffer) (flows []flow.Flow, err error) {
+	buf *bytes.Buffer) (flows []record.Record, err error) {
 
 	if setID >= 256 {
 		// Flow of Options record, lookup template and generate flows

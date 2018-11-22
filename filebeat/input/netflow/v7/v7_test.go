@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/stretchr/testify/assert"
@@ -53,8 +53,9 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
-	expected := []flow.Flow{
+	expected := []record.Record{
 		{
+			Type:      record.Flow,
 			Timestamp: captureTime,
 			Fields: common.MapStr{
 				"bgpDestinationAsNumber":      uint64(0),
@@ -77,7 +78,6 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 				"tcpControlBits":              uint64(24),
 				"flagsAndSamplerId":           uint64(0x4411),
 				"ipv4RouterSc":                net.ParseIP("255.255.255.255"),
-				"type":                        "flow",
 			},
 			Exporter: common.MapStr{
 				"address":      "127.0.0.1:59707",
@@ -86,6 +86,7 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 				"version":      uint64(7),
 			},
 		}, {
+			Type:      record.Flow,
 			Timestamp: captureTime,
 			Fields: common.MapStr{
 				"bgpDestinationAsNumber":      uint64(0),
@@ -108,7 +109,6 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 				"tcpControlBits":              uint64(24),
 				"flagsAndSamplerId":           uint64(0x3322),
 				"ipv4RouterSc":                net.ParseIP("255.254.253.252"),
-				"type":                        "flow",
 			},
 			Exporter: common.MapStr{
 				"address":      "127.0.0.1:59707",

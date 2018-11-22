@@ -28,6 +28,7 @@ import (
 	"github.com/elastic/beats/filebeat/channel"
 	"github.com/elastic/beats/filebeat/harvester"
 	"github.com/elastic/beats/filebeat/input"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
 	"github.com/elastic/beats/filebeat/inputsource"
 	"github.com/elastic/beats/filebeat/inputsource/udp"
@@ -204,6 +205,14 @@ func (p *Input) recvRoutine() {
 			for i, flow := range flows {
 				// Nest metadata under netflow
 				flow.Fields["exporter"] = flow.Exporter
+				switch flow.Type {
+				case record.Flow:
+					flow.Fields["type"] = "flow"
+				case record.Options:
+					flow.Fields["type"] = "options"
+				default:
+					flow.Fields["type"] = "unknown"
+				}
 				evs[i] = beat.Event{
 					Timestamp: flow.Timestamp,
 					Fields: common.MapStr{

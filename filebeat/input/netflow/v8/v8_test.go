@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/stretchr/testify/assert"
@@ -68,7 +68,7 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 		name        string
 		aggregation uint8
 		packet      []uint16
-		expected    flow.Flow
+		expected    record.Record
 		empty       bool
 	}{
 		{
@@ -81,10 +81,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                   "flow",
 					"deltaFlowCount":         uint64(0x12345678),
 					"packetDeltaCount":       uint64(0x9abcdef),
 					"octetDeltaCount":        uint64(0x11223344),
@@ -117,10 +117,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                     "flow",
 					"deltaFlowCount":           uint64(0x12345678),
 					"packetDeltaCount":         uint64(0x9abcdef),
 					"octetDeltaCount":          uint64(0x11223344),
@@ -152,10 +152,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x0506, 0,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                   "flow",
 					"deltaFlowCount":         uint64(0x12345678),
 					"packetDeltaCount":       uint64(0x09abcdef),
 					"octetDeltaCount":        uint64(0x11223344),
@@ -187,10 +187,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x0506, 0,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":               "flow",
 					"deltaFlowCount":     uint64(0x12345678),
 					"packetDeltaCount":   uint64(0x09abcdef),
 					"octetDeltaCount":    uint64(0x11223344),
@@ -223,10 +223,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0, 0,
 				0x0506, 0x0708, 0x090a, 0x0b0c, 0x0d0e,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                   "flow",
 					"deltaFlowCount":         uint64(0x12345678),
 					"packetDeltaCount":       uint64(0x9abcdef),
 					"octetDeltaCount":        uint64(0x11223344),
@@ -261,10 +261,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                   "flow",
 					"deltaFlowCount":         uint64(0x12345678),
 					"packetDeltaCount":       uint64(0x09abcdef),
 					"octetDeltaCount":        uint64(0x11223344),
@@ -298,10 +298,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                     "flow",
 					"deltaFlowCount":           uint64(0x12345678),
 					"packetDeltaCount":         uint64(0x9abcdef),
 					"octetDeltaCount":          uint64(0x11223344),
@@ -337,10 +337,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 				0x7181, 0x91a1, 0xb1c1, 0xd1e1,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                        "flow",
 					"deltaFlowCount":              uint64(0x12345678),
 					"packetDeltaCount":            uint64(0x9abcdef),
 					"octetDeltaCount":             uint64(0x11223344),
@@ -379,10 +379,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                   "flow",
 					"deltaFlowCount":         uint64(0x12345678),
 					"packetDeltaCount":       uint64(0x9abcdef),
 					"octetDeltaCount":        uint64(0x11223344),
@@ -416,10 +416,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                        "flow",
 					"deltaFlowCount":              uint64(0x12345678),
 					"packetDeltaCount":            uint64(0x9abcdef),
 					"octetDeltaCount":             uint64(0x11223344),
@@ -454,10 +454,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 				0x7181, 0x91a1, 0xb1c1, 0xd1e1,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                        "flow",
 					"deltaFlowCount":              uint64(0x12345678),
 					"packetDeltaCount":            uint64(0x9abcdef),
 					"octetDeltaCount":             uint64(0x11223344),
@@ -495,10 +495,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x1234, 0x5678, 0x09ab, 0xcdef, 0x1122, 0x3344, 0x5566, 0x7788,
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type": "flow",
 					"destinationIPv4Address":  net.ParseIP("18.52.86.120"),
 					"packetDeltaCount":        uint64(0x9abcdef),
 					"octetDeltaCount":         uint64(0x11223344),
@@ -533,10 +533,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 				0x7181, 0x91a1, 0xb1c1, 0xd1e1,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type": "flow",
 					"destinationIPv4Address":  net.ParseIP("18.52.86.120"),
 					"sourceIPv4Address":       net.ParseIP("9.171.205.239"),
 					"packetDeltaCount":        uint64(0x11223344),
@@ -573,10 +573,10 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 				0x99aa, 0x99bb, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
 				0x7181, 0x91a1, 0xb1c1, 0xd1e1, 0x2f2e, 0x2d2c,
 			},
-			expected: flow.Flow{
+			expected: record.Record{
+				Type:      record.Flow,
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type": "flow",
 					"destinationIPv4Address":   net.ParseIP("18.52.86.120"),
 					"sourceIPv4Address":        net.ParseIP("9.171.205.239"),
 					"destinationTransportPort": uint64(0x1122),

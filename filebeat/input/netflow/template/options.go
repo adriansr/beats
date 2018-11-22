@@ -20,7 +20,7 @@ package template
 import (
 	"bytes"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/libbeat/common"
 )
 
@@ -35,7 +35,7 @@ func (t *OptionsTemplate) TemplateID() uint16 {
 	return t.ID
 }
 
-func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]flow.Flow, error) {
+func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, error) {
 	if t.TotalLength == 0 {
 		// TODO: Empty template
 		return nil, nil
@@ -43,7 +43,7 @@ func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]flow.Flow, error) 
 	if n == 0 {
 		n = data.Len() / t.TotalLength
 	}
-	events := make([]flow.Flow, 0, n)
+	events := make([]record.Record, 0, n)
 	for i := 0; i < n; i++ {
 		event, err := t.ApplyOne(bytes.NewBuffer(data.Next(t.TotalLength)))
 		if err != nil {
@@ -54,7 +54,7 @@ func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]flow.Flow, error) 
 	return events, nil
 }
 
-func (t *OptionsTemplate) ApplyOne(data *bytes.Buffer) (ev flow.Flow, err error) {
+func (t *OptionsTemplate) ApplyOne(data *bytes.Buffer) (ev record.Record, err error) {
 	if data.Len() != t.TotalLength {
 		return ev, ErrNoData
 	}
@@ -65,11 +65,10 @@ func (t *OptionsTemplate) ApplyOne(data *bytes.Buffer) (ev flow.Flow, err error)
 	}
 	scope := common.MapStr{}
 	options := common.MapStr{}
-	ev = flow.Flow{
+	ev = record.Record{
 		// TODO: Time of reception for stored flow records
-		//Timestamp: time.Now(),
+		Type: record.Options,
 		Fields: common.MapStr{
-			"type":    "options",
 			"scope":   scope,
 			"options": options,
 		},

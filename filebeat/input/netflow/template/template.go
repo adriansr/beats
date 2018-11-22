@@ -22,7 +22,7 @@ import (
 	"errors"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -31,7 +31,7 @@ var ErrNoData = errors.New("not enough data")
 
 type Template interface {
 	TemplateID() uint16
-	Apply(data *bytes.Buffer, num int) ([]flow.Flow, error)
+	Apply(data *bytes.Buffer, num int) ([]record.Record, error)
 }
 
 type FieldTemplate struct {

@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
@@ -57,10 +57,10 @@ func TestMessageWithOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	captureTime := time.Unix(captureTimeMillis.Unix(), 0).UTC()
-	expected := flow.Flow{
+	expected := record.Record{
+		Type:      record.Options,
 		Timestamp: captureTime,
 		Fields: common.MapStr{
-			"type": "options",
 			"scope": common.MapStr{
 				"meteringProcessId": uint64(59670),
 			},
@@ -83,9 +83,9 @@ func TestMessageWithOptions(t *testing.T) {
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:1234"))
 	if assert.Len(t, flows, 7) {
 		test.AssertFlowsEqual(t, expected, flows[0])
-		assert.Equal(t, "options", flows[0].Fields["type"])
+		assert.Equal(t, record.Options, flows[0].Type)
 		for i := 1; i < len(flows); i++ {
-			assert.Equal(t, "flow", flows[i].Fields["type"])
+			assert.Equal(t, record.Flow, flows[i].Type)
 		}
 	}
 }

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package flow
+package record
 
 import (
 	"time"
@@ -23,8 +23,16 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 )
 
-type Flow struct {
+type Type uint8
+
+const (
+	Flow Type = iota
+	Options
+)
+
+type Record struct {
 	Timestamp time.Time
 	Fields    common.MapStr
 	Exporter  common.MapStr
+	Type      Type
 }

@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/stretchr/testify/assert"
@@ -76,7 +76,10 @@ func AssertMapEqual(t testing.TB, expected common.MapStr, actual common.MapStr) 
 	return true
 }
 
-func AssertFlowsEqual(t testing.TB, expected flow.Flow, actual flow.Flow) bool {
+func AssertFlowsEqual(t testing.TB, expected record.Record, actual record.Record) bool {
+	if !assert.Equal(t, expected.Type, actual.Type) {
+		return false
+	}
 	if !assert.Equal(t, expected.Timestamp, actual.Timestamp) {
 		return false
 	}

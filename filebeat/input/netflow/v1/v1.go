@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
 	template2 "github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/libbeat/common"
@@ -98,7 +98,7 @@ func (NetflowProtocol) Stop() error {
 	return nil
 }
 
-func (p *NetflowProtocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
+func (p *NetflowProtocol) OnPacket(data []byte, source net.Addr) (flows []record.Record) {
 	buf := bytes.NewBuffer(data)
 	numFlows, timestamp, metadata, err := p.readHeader(buf, source)
 	if err != nil {

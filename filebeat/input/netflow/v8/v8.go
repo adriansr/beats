@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
 	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/libbeat/common"
@@ -327,7 +327,7 @@ func (NetflowV8Protocol) ID() uint16 {
 	return ProtocolID
 }
 
-func (p *NetflowV8Protocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
+func (p *NetflowV8Protocol) OnPacket(data []byte, source net.Addr) (flows []record.Record) {
 	buf := bytes.NewBuffer(data)
 	header, err := ReadPacketHeader(buf)
 	if err != nil {

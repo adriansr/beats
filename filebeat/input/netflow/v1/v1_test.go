@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/stretchr/testify/assert"
@@ -51,8 +51,10 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
-	expected := []flow.Flow{
-		{Timestamp: captureTime,
+	expected := []record.Record{
+		{
+			Type:      record.Flow,
+			Timestamp: captureTime,
 			Fields: common.MapStr{
 				"destinationIPv4Address":   net.ParseIP("192.168.1.123"),
 				"destinationTransportPort": uint64(55057),
@@ -68,7 +70,6 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 				"sourceIPv4Address":        net.ParseIP("172.217.16.229"),
 				"sourceTransportPort":      uint64(443),
 				"tcpControlBits":           uint64(24),
-				"type":                     "flow",
 			},
 			Exporter: common.MapStr{
 				"address":      "127.0.0.1:59707",
@@ -77,6 +78,7 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 				"version":      uint64(1),
 			},
 		}, {
+			Type:      record.Flow,
 			Timestamp: captureTime,
 			Fields: common.MapStr{
 				"destinationIPv4Address":   net.ParseIP("172.217.16.229"),
@@ -93,7 +95,6 @@ func TestNetflowProtocol_OnPacket(t *testing.T) {
 				"sourceIPv4Address":        net.ParseIP("192.168.1.123"),
 				"sourceTransportPort":      uint64(55057),
 				"tcpControlBits":           uint64(24),
-				"type":                     "flow",
 			},
 			Exporter: common.MapStr{
 				"address":      "127.0.0.1:59707",

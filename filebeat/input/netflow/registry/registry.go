@@ -24,7 +24,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/elastic/beats/filebeat/input/netflow/flow"
+	"github.com/elastic/beats/filebeat/input/netflow/record"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 
 type Protocol interface {
 	ID() uint16
-	OnPacket(data []byte, source net.Addr) []flow.Flow
+	OnPacket(data []byte, source net.Addr) []record.Record
 	Start() error
 	Stop() error
 }
