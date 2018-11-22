@@ -497,12 +497,12 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 			expected: flow.Flow{
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                    "flow",
-					"destinationIPv4Address":  net.ParseIP("18.52.86.126"),
+					"type": "flow",
+					"destinationIPv4Address":  net.ParseIP("18.52.86.120"),
 					"packetDeltaCount":        uint64(0x9abcdef),
 					"octetDeltaCount":         uint64(0x11223344),
 					"flowStartSysUpTime":      uint64(0x55667788),
-					"flowEndSysUpTime":        uint64(0x99a99bb),
+					"flowEndSysUpTime":        uint64(0x99aa99bb),
 					"egressInterface":         uint64(0x1111),
 					"ipClassOfService":        uint64(0x22),
 					"postIpClassOfService":    uint64(0x22),
@@ -535,8 +535,8 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 			expected: flow.Flow{
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                    "flow",
-					"destinationIPv4Address":  net.ParseIP("18.52.86.126"),
+					"type": "flow",
+					"destinationIPv4Address":  net.ParseIP("18.52.86.120"),
 					"sourceIPv4Address":       net.ParseIP("9.171.205.239"),
 					"packetDeltaCount":        uint64(0x11223344),
 					"octetDeltaCount":         uint64(0x55667788),
@@ -546,8 +546,8 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 					"ingressInterface":        uint64(0x4444),
 					"ipClassOfService":        uint64(0x55),
 					"postIpClassOfService":    uint64(0x55),
-					"droppedPacketDeltaCount": uint64(0x66667181),
-					"ipv4RouterSc":            net.ParseIP("1.1.1.1"),
+					"droppedPacketDeltaCount": uint64(0x718191a1),
+					"ipv4RouterSc":            net.ParseIP("177.193.209.225"),
 				},
 				Exporter: common.MapStr{
 					"version":            uint64(8),
@@ -562,8 +562,8 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 			},
 		},
 		{
-			name:        "SrcDst",
-			aggregation: SrcDst,
+			name:        "FullFlow",
+			aggregation: FullFlow,
 			packet: []uint16{
 				// Header
 				8, 1, 1, 2, 23543, 5935, 15070, 26801, 0x1234, 0x5678, 258, 0, 0, 0,
@@ -575,22 +575,22 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 			expected: flow.Flow{
 				Timestamp: captureTime,
 				Fields: common.MapStr{
-					"type":                     "flow",
-					"destinationIPv4Address":   uint64(0x0),
-					"sourceIPv4Address":        uint64(0x0),
-					"destinationTransportPort": uint64(0x0),
-					"sourceTransportPort":      uint64(0x0),
-					"packetDeltaCount":         uint64(0x0),
-					"octetDeltaCount":          uint64(0x0),
-					"flowStartSysUpTime":       uint64(0x0),
-					"flowEndSysUpTime":         uint64(0x0),
-					"egressInterface":          uint64(0x0),
-					"ingressInterface":         uint64(0x0),
-					"ipClassOfService":         uint64(0x0),
-					"protocolIdentifier":       uint64(0x0),
-					"postIpClassOfService":     uint64(0x0),
-					"droppedPacketDeltaCount":  uint64(0x0),
-					"ipv4RouterSc":             uint64(0x0),
+					"type": "flow",
+					"destinationIPv4Address":   net.ParseIP("18.52.86.120"),
+					"sourceIPv4Address":        net.ParseIP("9.171.205.239"),
+					"destinationTransportPort": uint64(0x1122),
+					"sourceTransportPort":      uint64(0x3344),
+					"packetDeltaCount":         uint64(0x55667788),
+					"octetDeltaCount":          uint64(0x99aa99bb),
+					"flowStartSysUpTime":       uint64(0x11112222),
+					"flowEndSysUpTime":         uint64(0x33334444),
+					"egressInterface":          uint64(0x5555),
+					"ingressInterface":         uint64(0x6666),
+					"ipClassOfService":         uint64(0x71),
+					"protocolIdentifier":       uint64(0x81),
+					"postIpClassOfService":     uint64(0x91),
+					"droppedPacketDeltaCount":  uint64(0xb1c1d1e1),
+					"ipv4RouterSc":             net.ParseIP("47.46.45.44"),
 				},
 				Exporter: common.MapStr{
 					"version":            uint64(8),
@@ -599,7 +599,7 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 					"address":            address.String(),
 					"engineType":         uint64(1),
 					"engineId":           uint64(2),
-					"aggregation":        uint64(SrcDst),
+					"aggregation":        uint64(FullFlow),
 					"aggregationVersion": uint64(0),
 				},
 			},
@@ -607,9 +607,6 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			raw := test.MakePacket(testCase.packet)
-			// Set aggregation
-			// TODO: remove
-			assert.Equal(t, 28+int(templates[testCase.aggregation].TotalLength), len(raw))
 			raw[22] = testCase.aggregation
 			flow := proto.OnPacket(raw, address)
 			if !assert.Len(t, flow, 1) {
