@@ -84,12 +84,12 @@ func (NetflowProtocol) Stop() error {
 func (p *NetflowProtocol) OnPacket(data []byte, source net.Addr) (flows []flow.Flow) {
 	buf := bytes.NewBuffer(data)
 	// TODO: count
-	_, timestamp, metadata, err := p.readHeader(buf, source)
+	numFlows, timestamp, metadata, err := p.readHeader(buf, source)
 	if err != nil {
 		p.logger.Errorf("Failed parsing packet of %d bytes: %v", len(data), err)
 		return nil
 	}
-	flows, err = p.flowTemplate.Apply(buf)
+	flows, err = p.flowTemplate.Apply(buf, numFlows)
 	for i := range flows {
 		flows[i].Exporter = metadata
 		flows[i].Timestamp = timestamp
@@ -114,7 +114,7 @@ func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
 		Version:   binary.BigEndian.Uint16(arr[:2]),
 		Count:     binary.BigEndian.Uint16(arr[2:4]),
 		SysUptime: binary.BigEndian.Uint32(arr[4:8]),
-		Timestamp: time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))),
+		Timestamp: time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))).UTC(),
 	}
 	return header, nil
 }
@@ -126,9 +126,9 @@ func readV1Header(buf *bytes.Buffer, source net.Addr) (count int, ts time.Time, 
 	}
 	count = int(header.Count)
 	metadata = common.MapStr{
-		"version":      header.Version,
+		"version":      uint64(header.Version),
 		"timestamp":    header.Timestamp,
-		"uptimeMillis": header.SysUptime,
+		"uptimeMillis": uint64(header.SysUptime),
 		"address":      source.String(),
 	}
 	return count, header.Timestamp, metadata, nil

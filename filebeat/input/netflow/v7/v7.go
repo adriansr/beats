@@ -9,7 +9,6 @@ import (
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
 	"github.com/elastic/beats/filebeat/input/netflow/registry"
 	"github.com/elastic/beats/filebeat/input/netflow/v1"
-	"github.com/elastic/beats/filebeat/input/netflow/v5"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
 	"github.com/elastic/beats/libbeat/common"
 )
@@ -41,7 +40,6 @@ var template = v9.RecordTemplate{
 		{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned16}},
 		{Length: 1, Info: &fields.Field{Name: "sourceIPv4PrefixLength", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "destinationIPv4PrefixLength", Decoder: fields.Unsigned8}},
-		// TODO: check
 		{Length: 2, Info: &fields.Field{Name: "flagsAndSamplerId", Decoder: fields.Unsigned16}},
 		{Length: 4, Info: &fields.Field{Name: "ipv4RouterSc", Decoder: fields.Ipv4Address}},
 	},
@@ -53,7 +51,7 @@ func init() {
 }
 
 func New() registry.Protocol {
-	return v1.NewProtocol(ProtocolID, &template, v5.ReadV5Header)
+	return v1.NewProtocol(ProtocolID, &template, ReadV7Header)
 }
 
 type PacketHeader struct {
@@ -75,22 +73,22 @@ func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
 		Version:      binary.BigEndian.Uint16(arr[:2]),
 		Count:        binary.BigEndian.Uint16(arr[2:4]),
 		SysUptime:    binary.BigEndian.Uint32(arr[4:8]),
-		Timestamp:    time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))),
+		Timestamp:    time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))).UTC(),
 		FlowSequence: binary.BigEndian.Uint32(arr[16:20]),
 	}
 	return header, nil
 }
 
-func ReadV5Header(buf *bytes.Buffer, source net.Addr) (count int, ts time.Time, metadata common.MapStr, err error) {
+func ReadV7Header(buf *bytes.Buffer, source net.Addr) (count int, ts time.Time, metadata common.MapStr, err error) {
 	header, err := ReadPacketHeader(buf)
 	if err != nil {
 		return count, ts, metadata, err
 	}
 	count = int(header.Count)
 	metadata = common.MapStr{
-		"version":      header.Version,
+		"version":      uint64(header.Version),
 		"timestamp":    header.Timestamp,
-		"uptimeMillis": header.SysUptime,
+		"uptimeMillis": uint64(header.SysUptime),
 		"address":      source.String(),
 	}
 	return count, header.Timestamp, metadata, nil

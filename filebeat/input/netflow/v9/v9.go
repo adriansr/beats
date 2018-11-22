@@ -121,7 +121,7 @@ func (p *NetflowV9Protocol) parseSet(
 	if setID >= 256 {
 		// Flow of Options record, lookup template and generate flows
 		if template := session.GetTemplate(sourceID, setID); template != nil {
-			return template.Apply(buf)
+			return template.Apply(buf, 0)
 		}
 		return nil, nil
 	}

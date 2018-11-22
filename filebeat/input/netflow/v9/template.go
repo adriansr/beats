@@ -13,7 +13,7 @@ import (
 
 type Template interface {
 	TemplateID() uint16
-	Apply(data *bytes.Buffer) ([]flow.Flow, error)
+	Apply(data *bytes.Buffer, num int) ([]flow.Flow, error)
 }
 
 type FieldTemplate struct {
@@ -31,12 +31,14 @@ func (t RecordTemplate) TemplateID() uint16 {
 	return t.ID
 }
 
-func (t *RecordTemplate) Apply(data *bytes.Buffer) ([]flow.Flow, error) {
+func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]flow.Flow, error) {
 	if t.TotalLength == 0 {
 		// TODO: Empty template
 		return nil, nil
 	}
-	n := data.Len() / t.TotalLength
+	if n == 0 {
+		n = data.Len() / t.TotalLength
+	}
 	events := make([]flow.Flow, 0, n)
 	for i := 0; i < n; i++ {
 		event, err := t.ApplyOne(bytes.NewBuffer(data.Next(t.TotalLength)))
@@ -81,12 +83,14 @@ func (t *OptionsTemplate) TemplateID() uint16 {
 	return t.ID
 }
 
-func (t *OptionsTemplate) Apply(data *bytes.Buffer) ([]flow.Flow, error) {
+func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]flow.Flow, error) {
 	if t.TotalLength == 0 {
 		// TODO: Empty template
 		return nil, nil
 	}
-	n := data.Len() / t.TotalLength
+	if n == 0 {
+		n = data.Len() / t.TotalLength
+	}
 	events := make([]flow.Flow, 0, n)
 	for i := 0; i < n; i++ {
 		event, err := t.ApplyOne(bytes.NewBuffer(data.Next(t.TotalLength)))

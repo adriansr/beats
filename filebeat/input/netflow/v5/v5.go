@@ -74,7 +74,7 @@ func ReadPacketHeader(buf *bytes.Buffer) (header PacketHeader, err error) {
 		Version:          binary.BigEndian.Uint16(arr[:2]),
 		Count:            binary.BigEndian.Uint16(arr[2:4]),
 		SysUptime:        binary.BigEndian.Uint32(arr[4:8]),
-		Timestamp:        time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))),
+		Timestamp:        time.Unix(int64(timestamp>>32), int64(timestamp&(1<<32-1))).UTC(),
 		FlowSequence:     binary.BigEndian.Uint32(arr[16:20]),
 		EngineType:       arr[20],
 		EngineID:         arr[21],
@@ -90,13 +90,13 @@ func ReadV5Header(buf *bytes.Buffer, source net.Addr) (count int, ts time.Time, 
 	}
 	count = int(header.Count)
 	metadata = common.MapStr{
-		"version":          header.Version,
+		"version":          uint64(header.Version),
 		"timestamp":        header.Timestamp,
-		"uptimeMillis":     header.SysUptime,
+		"uptimeMillis":     uint64(header.SysUptime),
 		"address":          source.String(),
-		"engineType":       header.EngineType,
-		"engineId":         header.EngineID,
-		"samplingInterval": header.SamplingInterval,
+		"engineType":       uint64(header.EngineType),
+		"engineId":         uint64(header.EngineID),
+		"samplingInterval": uint64(header.SamplingInterval),
 	}
 	return count, header.Timestamp, metadata, nil
 }
