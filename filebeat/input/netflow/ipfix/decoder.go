@@ -20,6 +20,7 @@ package ipfix
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -95,6 +96,9 @@ func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates [
 			return nil, err
 		}
 		tID := binary.BigEndian.Uint16(header[:2])
+		if tID < 256 {
+			return nil, errors.New("invalid template id")
+		}
 		totalCount := int(binary.BigEndian.Uint16(header[2:4]))
 		scopeCount := int(binary.BigEndian.Uint16(header[4:]))
 		if scopeCount > totalCount {
@@ -124,7 +128,7 @@ func (d DecoderIPFix) ReadFields(buf *bytes.Buffer, count int) (record template.
 	for i := 0; i < count; i++ {
 		key, length, err := d.ReadFieldDefinition(buf)
 		if err != nil {
-			return record, io.EOF
+			return template.RecordTemplate{}, io.EOF
 		}
 		field := template.FieldTemplate{
 			Length: length,

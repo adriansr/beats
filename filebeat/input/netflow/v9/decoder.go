@@ -82,7 +82,7 @@ func (d DecoderV9) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.
 	case TemplateFlowSetID:
 		return ReadTemplateFlowSet(d, buf)
 	case TemplateOptionsSetID:
-		return ReadOptionsTemplateFlowSet(d, buf)
+		return d.ReadOptionsTemplateFlowSet(buf)
 	default:
 		return nil, fmt.Errorf("set id %d not supported", setID)
 	}
@@ -151,7 +151,7 @@ func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Tem
 	return templates, nil
 }
 
-func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Template, err error) {
+func (d DecoderV9) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []template.Template, err error) {
 	var header [6]byte
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
@@ -161,6 +161,9 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []templ
 			return nil, err
 		}
 		tID := binary.BigEndian.Uint16(header[:2])
+		if tID < 256 {
+			return nil, errors.New("invalid template id")
+		}
 		scopeLen := int(binary.BigEndian.Uint16(header[2:4]))
 		optsLen := int(binary.BigEndian.Uint16(header[4:]))
 		length := optsLen + scopeLen

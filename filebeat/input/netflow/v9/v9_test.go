@@ -112,6 +112,14 @@ func TestFlowsAndTemplatesPacket(t *testing.T) {
 	assert.Len(t, s.Templates, 4)
 }
 
+func TestNetflowProtocol_New(t *testing.T) {
+	proto := New()
+
+	assert.Nil(t, proto.Start())
+	assert.Equal(t, uint16(9), proto.ID())
+	assert.Nil(t, proto.Stop())
+}
+
 func TestOptionTemplates(t *testing.T) {
 	logp.TestingSetup()
 	addr := test.MakeAddress(t, "127.0.0.1:12345")

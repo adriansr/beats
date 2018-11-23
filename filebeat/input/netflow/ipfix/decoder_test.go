@@ -1,64 +1,21 @@
-package v9
+package ipfix
 
 import (
 	"bytes"
 	"errors"
 	"io"
 	"testing"
-	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
 	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
+	"github.com/elastic/beats/filebeat/input/netflow/v9"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDecoderV9_ReadPacketHeader(t *testing.T) {
-	captureTime, err := time.Parse(time.RFC3339, "2018-11-22T20:53:03Z")
-	if !assert.NoError(t, err) {
-		t.Fatal(err)
-	}
-	decoder := DecoderV9{}
-	for _, tc := range []struct {
-		title    string
-		packet   []uint16
-		expected PacketHeader
-		err      error
-	}{
-		{
-			title: "valid header",
-			packet: []uint16{
-				9, 4096, 0x1234, 0x5678, 23543, 5935, 0x1122, 0x3344, 0x5566, 0x7788,
-			},
-			expected: PacketHeader{
-				Version:    9,
-				Count:      4096,
-				SysUptime:  0x12345678,
-				UnixSecs:   captureTime.UTC(),
-				SequenceNo: 0x11223344,
-				SourceID:   0x55667788,
-			},
-		},
-		{
-			title: "short header",
-			packet: []uint16{
-				9, 4096, 0x1234, 0x5678, 23543, 5935, 0x1122, 0x3344, 0x5566,
-			},
-			err: io.EOF,
-		},
-	} {
-		t.Run(tc.title, func(t *testing.T) {
-			raw := test.MakePacket(tc.packet)
-			header, err := decoder.ReadPacketHeader(bytes.NewBuffer(raw))
-			assert.Equal(t, tc.err, err)
-			assert.Equal(t, tc.expected, header)
-		})
-	}
-}
-
 func TestDecoderV9_ReadFieldDefinition(t *testing.T) {
-	decoder := DecoderV9{}
+	decoder := DecoderIPFix{}
 	for _, tc := range []struct {
 		title  string
 		raw    []byte
@@ -82,12 +39,12 @@ func TestDecoderV9_ReadFieldDefinition(t *testing.T) {
 			err: io.EOF,
 		},
 		{
-			title: "ignore enterprise id",
+			title: "enterprise id",
 			raw: []byte{
-				0x80, 1, 2, 3,
+				0x80, 1, 0, 4, 0x11, 0x22, 0x33, 0x44,
 			},
-			field:  fields.Key{FieldID: 0x8001},
-			length: 0x0203,
+			field:  fields.Key{EnterpriseID: 0x11223344, FieldID: 1},
+			length: 4,
 		},
 		{
 			title: "max length",
@@ -109,7 +66,7 @@ func TestDecoderV9_ReadFieldDefinition(t *testing.T) {
 
 func TestDecoderV9_ReadFields(t *testing.T) {
 	logp.TestingSetup()
-	decoder := DecoderV9{}
+	decoder := DecoderIPFix{}
 	for _, tc := range []struct {
 		title    string
 		packet   []uint16
@@ -152,20 +109,21 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 			},
 		},
 		{
-			title: "ignore enterprise ID",
+			title: "enterprise ID",
 			packet: []uint16{
 				1, 4,
 				5, 1,
-				0x8000 | 8232, 2,
+				0x8000 | 128, 4,
+				0, 5951,
 			},
 			count: 3,
 			expected: template.RecordTemplate{
 				Fields: []template.FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
 					{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
-					{Length: 2},
+					{Length: 4, Info: &fields.Field{Name: "netscalerRoundTripTime", Decoder: fields.Unsigned32}},
 				},
-				TotalLength: 7,
+				TotalLength: 9,
 			},
 		},
 		{
@@ -192,7 +150,7 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 
 func TestReadOptionsTemplateFlowSet(t *testing.T) {
 	logp.TestingSetup()
-	decoder := DecoderV9{}
+	decoder := DecoderIPFix{}
 	for _, tc := range []struct {
 		title    string
 		packet   []uint16
@@ -202,11 +160,11 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 		{
 			title: "valid fields",
 			packet: []uint16{
-				999, 4, 8,
+				999, 3, 1,
 				1, 4,
 				5, 1,
 				14, 2,
-				998, 4, 0,
+				998, 1, 1,
 				16, 4,
 			},
 			expected: []template.Template{
@@ -215,6 +173,39 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 					TotalLength: 7,
 					Scope: []template.FieldTemplate{
 						{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
+					},
+					Options: []template.FieldTemplate{
+						{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
+						{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
+					},
+				},
+				&template.OptionsTemplate{
+					ID:          998,
+					TotalLength: 4,
+					Scope: []template.FieldTemplate{
+						{Length: 4, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
+					},
+					Options: []template.FieldTemplate{},
+				},
+			},
+		},
+		{
+			title: "variable length",
+			packet: []uint16{
+				999, 3, 1,
+				1, 0xFFFF,
+				5, 1,
+				14, 2,
+				998, 1, 1,
+				16, 4,
+			},
+			expected: []template.Template{
+				&template.OptionsTemplate{
+					ID:             999,
+					TotalLength:    4,
+					VariableLength: true,
+					Scope: []template.FieldTemplate{
+						{Length: 0xFFFF, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
 					},
 					Options: []template.FieldTemplate{
 						{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
@@ -246,24 +237,24 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 		{
 			title: "bad length",
 			packet: []uint16{
-				999, 4, 8,
+				999, 1, 3,
 				1, 4,
 				5, 1,
 				14, 2,
-				1111, 4, 7,
+				1111, 1, 1,
 				16, 4,
 				0, 0, 0, 0, 0, 0, 0, 0,
 			},
-			err: errors.New("odd length for options template. scope=4 options=7"),
+			err: errors.New("wrong counts in options template flowset: scope=3 total=1"),
 		},
 		{
 			title: "invalid template ID",
 			packet: []uint16{
-				999, 4, 8,
+				999, 3, 2,
 				1, 4,
 				5, 1,
 				14, 2,
-				1, 4, 6,
+				1, 4, 2,
 				16, 4,
 				0, 0, 0, 0, 0, 0, 0, 0,
 			},
@@ -285,7 +276,7 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 
 func TestReadTemplateFlowSet(t *testing.T) {
 	logp.TestingSetup()
-	decoder := DecoderV9{}
+	decoder := DecoderIPFix{}
 	for _, tc := range []struct {
 		title    string
 		packet   []uint16
@@ -346,7 +337,7 @@ func TestReadTemplateFlowSet(t *testing.T) {
 	} {
 		t.Run(tc.title, func(t *testing.T) {
 			raw := test.MakePacket(tc.packet)
-			templates, err := ReadTemplateFlowSet(decoder, bytes.NewBuffer(raw))
+			templates, err := v9.ReadTemplateFlowSet(decoder, bytes.NewBuffer(raw))
 			assert.Equal(t, tc.err, err)
 			if assert.Len(t, templates, len(tc.expected)) {
 				for idx := range tc.expected {
