@@ -21,7 +21,6 @@ package v9
 
 import (
 	"bytes"
-	"errors"
 	"net"
 	"time"
 
@@ -37,18 +36,12 @@ const (
 	MaxSequenceDifference        = 100
 )
 
-var (
-	ErrNoData = errors.New("not enough data")
-)
-
 type NetflowV9Protocol struct {
 	decoder Decoder
 	logger  *logp.Logger
 	Session SessionMap
 	done    chan struct{}
 }
-
-var _ registry.Protocol = (*NetflowV9Protocol)(nil)
 
 func init() {
 	registry.ProtocolRegistry.Register(ProtocolName, New)

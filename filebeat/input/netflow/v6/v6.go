@@ -44,7 +44,7 @@ var template = template2.RecordTemplate{
 		{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
 		{Length: 2, Info: &fields.Field{Name: "destinationTransportPort", Decoder: fields.Unsigned16}},
-		{Length: 1, Info: &fields.Field{Decoder: fields.Unsigned8}}, // Padding
+		{Length: 1}, // Padding
 		{Length: 1, Info: &fields.Field{Name: "tcpControlBits", Decoder: fields.Unsigned16}},
 		{Length: 1, Info: &fields.Field{Name: "protocolIdentifier", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
@@ -52,7 +52,7 @@ var template = template2.RecordTemplate{
 		{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned32}},
 		{Length: 1, Info: &fields.Field{Name: "sourceIPv4PrefixLength", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "destinationIPv4PrefixLength", Decoder: fields.Unsigned8}},
-		{Length: 6, Info: &fields.Field{Decoder: fields.OctetArray}}, // Padding
+		{Length: 6}, // Padding
 	},
 	TotalLength: 52,
 }

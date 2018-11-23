@@ -51,11 +51,11 @@ var template = template2.RecordTemplate{
 		{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 		{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
 		{Length: 2, Info: &fields.Field{Name: "destinationTransportPort", Decoder: fields.Unsigned16}},
-		{Length: 2, Info: &fields.Field{Decoder: fields.Unsigned16}}, // Padding
+		{Length: 2}, // Padding
 		{Length: 1, Info: &fields.Field{Name: "protocolIdentifier", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
 		{Length: 1, Info: &fields.Field{Name: "tcpControlBits", Decoder: fields.Unsigned16}},
-		{Length: 7, Info: &fields.Field{Decoder: fields.OctetArray}}, // Padding
+		{Length: 7}, // Padding
 	},
 	TotalLength: 48,
 }

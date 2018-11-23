@@ -21,11 +21,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
 	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
+	"github.com/elastic/beats/libbeat/logp"
 )
 
 const (
@@ -44,7 +46,7 @@ func (_ DecoderIPFix) ReadPacketHeader(buf *bytes.Buffer) (v9.PacketHeader, erro
 	var data [16]byte
 	n, err := buf.Read(data[:])
 	if n != len(data) || err != nil {
-		return v9.PacketHeader{}, v9.ErrNoData
+		return v9.PacketHeader{}, io.EOF
 	}
 	return v9.PacketHeader{
 		Version:    binary.BigEndian.Uint16(data[:2]),
@@ -69,14 +71,14 @@ func (d DecoderIPFix) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]templa
 func (d DecoderIPFix) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, length uint16, err error) {
 	var row [4]byte
 	if n, err := buf.Read(row[:]); err != nil || n != len(row) {
-		return field, length, v9.ErrNoData
+		return field, length, io.EOF
 	}
 	field.FieldID = binary.BigEndian.Uint16(row[:2])
 	length = binary.BigEndian.Uint16(row[2:])
 	if field.FieldID&EnterpriseBit != 0 {
 		field.FieldID &= ^EnterpriseBit
 		if n, err := buf.Read(row[:]); err != nil || n != len(row) {
-			return field, length, v9.ErrNoData
+			return field, length, io.EOF
 		}
 		field.EnterpriseID = binary.BigEndian.Uint32(row[:])
 	}
@@ -88,26 +90,62 @@ func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates [
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
 			if err == nil {
-				err = v9.ErrNoData
+				err = io.EOF
 			}
 			return nil, err
 		}
-		template := &template.OptionsTemplate{
-			ID: binary.BigEndian.Uint16(header[:2]),
-		}
+		tID := binary.BigEndian.Uint16(header[:2])
 		totalCount := int(binary.BigEndian.Uint16(header[2:4]))
 		scopeCount := int(binary.BigEndian.Uint16(header[4:]))
 		if scopeCount > totalCount {
 			return nil, fmt.Errorf("wrong counts in options template flowset: scope=%d total=%d", scopeCount, totalCount)
 		}
-		template.Scope, template.TotalLength, err = v9.ReadFields(d, buf, scopeCount)
+		scope, err := d.ReadFields(buf, scopeCount)
 		if err != nil {
 			return nil, err
 		}
-		var extraLen int
-		template.Options, extraLen, err = v9.ReadFields(d, buf, totalCount-scopeCount)
-		template.TotalLength += extraLen
-		templates = append(templates, template)
+		options, err := d.ReadFields(buf, totalCount-scopeCount)
+		if err != nil {
+			return nil, err
+		}
+		templates = append(templates, &template.OptionsTemplate{
+			ID:             tID,
+			Scope:          scope.Fields,
+			Options:        options.Fields,
+			TotalLength:    scope.TotalLength + options.TotalLength,
+			VariableLength: scope.VariableLength || options.VariableLength,
+		})
 	}
 	return templates, nil
+}
+
+func (d DecoderIPFix) ReadFields(buf *bytes.Buffer, count int) (record template.RecordTemplate, err error) {
+	record.Fields = make([]template.FieldTemplate, count)
+	for i := 0; i < count; i++ {
+		key, length, err := d.ReadFieldDefinition(buf)
+		if err != nil {
+			return record, io.EOF
+		}
+		field := template.FieldTemplate{
+			Length: length,
+		}
+		if length == template.VariableLength {
+			record.VariableLength = true
+			record.TotalLength += 1
+		} else {
+			record.TotalLength += int(field.Length)
+		}
+		if fieldInfo, found := fields.Fields[key]; found {
+			min, max := fieldInfo.Decoder.MinLength(), fieldInfo.Decoder.MaxLength()
+			if length == template.VariableLength || min <= field.Length && field.Length <= max {
+				field.Info = fieldInfo
+			} else {
+				logp.Warn("Size of field %s in template is out of bounds (size=%d, min=%d, max=%d)", fieldInfo.Name, field.Length, min, max)
+			}
+		} else {
+			logp.Warn("Field %v in template not found", key)
+		}
+		record.Fields[i] = field
+	}
+	return record, nil
 }

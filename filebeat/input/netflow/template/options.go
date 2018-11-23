@@ -19,16 +19,18 @@ package template
 
 import (
 	"bytes"
+	"io"
 
 	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/libbeat/common"
 )
 
 type OptionsTemplate struct {
-	ID          uint16
-	Scope       []FieldTemplate
-	Options     []FieldTemplate
-	TotalLength int
+	ID             uint16
+	Scope          []FieldTemplate
+	Options        []FieldTemplate
+	TotalLength    int
+	VariableLength bool
 }
 
 func (t *OptionsTemplate) TemplateID() uint16 {
@@ -41,7 +43,9 @@ func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, err
 		return nil, nil
 	}
 	if n == 0 {
-		n = data.Len() / t.TotalLength
+		if !t.VariableLength {
+			n = data.Len() / t.TotalLength
+		}
 	}
 	events := make([]record.Record, 0, n)
 	for i := 0; i < n; i++ {
@@ -56,12 +60,12 @@ func (t *OptionsTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, err
 
 func (t *OptionsTemplate) ApplyOne(data *bytes.Buffer) (ev record.Record, err error) {
 	if data.Len() != t.TotalLength {
-		return ev, ErrNoData
+		return ev, io.EOF
 	}
 	buf := make([]byte, t.TotalLength)
 	n, err := data.Read(buf)
 	if err != nil || n < int(t.TotalLength) {
-		return ev, ErrNoData
+		return ev, io.EOF
 	}
 	scope := common.MapStr{}
 	options := common.MapStr{}
@@ -73,11 +77,11 @@ func (t *OptionsTemplate) ApplyOne(data *bytes.Buffer) (ev record.Record, err er
 			"options": options,
 		},
 	}
-	pos, err := PopulateFieldMap(scope, t.Scope, buf, 0)
+	pos, err := PopulateFieldMap(scope, t.Scope, t.VariableLength, buf, 0)
 	if err != nil {
 		return ev, err
 	}
-	pos, err = PopulateFieldMap(options, t.Options, buf, pos)
+	pos, err = PopulateFieldMap(options, t.Options, t.VariableLength, buf, pos)
 	if err != nil {
 		return ev, err
 	}

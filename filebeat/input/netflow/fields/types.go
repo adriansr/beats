@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"time"
@@ -29,7 +30,6 @@ import (
 var (
 	NtpEpoch = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	ErrNoData      = errors.New("no data to decode")
 	ErrOutOfBounds = errors.New("excess bytes for decoding")
 	ErrUnsupported = errors.New("unsupported data type")
 )
@@ -57,7 +57,7 @@ func (u UnsignedDecoder) Decode(data []byte) (interface{}, error) {
 	}
 	switch n {
 	case 0:
-		return uint64(0), ErrNoData
+		return uint64(0), io.EOF
 	case 1:
 		return uint64(data[0]), nil
 	case 2:
@@ -94,7 +94,7 @@ func (u SignedDecoder) Decode(data []byte) (interface{}, error) {
 	}
 	switch n {
 	case 0:
-		return int64(0), ErrNoData
+		return int64(0), io.EOF
 	case 1:
 		return int64(int8(data[0])), nil
 	case 2:
@@ -138,7 +138,7 @@ func (u FloatDecoder) Decode(data []byte) (interface{}, error) {
 	}
 	switch n {
 	case 0:
-		return float64(0), ErrNoData
+		return float64(0), io.EOF
 	case 4:
 		return float64(math.Float32frombits(binary.BigEndian.Uint32(data))), nil
 	case 8:
@@ -164,7 +164,7 @@ func (u BooleanDecoder) Decode(data []byte) (interface{}, error) {
 	n := len(data)
 	switch n {
 	case 0:
-		return false, ErrNoData
+		return false, io.EOF
 	case 1:
 		/* The boolean data type is specified according to the TruthValue in
 		   [RFC2579].  It is encoded as a single-octet integer per

@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -41,6 +42,7 @@ type Decoder interface {
 	ReadSetHeader(*bytes.Buffer) (SetHeader, error)
 	ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error)
 	ReadFieldDefinition(*bytes.Buffer) (field fields.Key, length uint16, err error)
+	ReadFields(buf *bytes.Buffer, count int) (record template.RecordTemplate, err error)
 }
 
 type DecoderV9 struct{}
@@ -51,13 +53,13 @@ func (_ DecoderV9) ReadPacketHeader(buf *bytes.Buffer) (PacketHeader, error) {
 	var data [20]byte
 	n, err := buf.Read(data[:])
 	if n != len(data) || err != nil {
-		return PacketHeader{}, ErrNoData
+		return PacketHeader{}, io.EOF
 	}
 	return PacketHeader{
 		Version:    binary.BigEndian.Uint16(data[:2]),
 		Count:      binary.BigEndian.Uint16(data[2:4]),
 		SysUptime:  binary.BigEndian.Uint32(data[4:8]),
-		UnixSecs:   time.Unix(int64(binary.BigEndian.Uint32(data[8:12])), 0),
+		UnixSecs:   time.Unix(int64(binary.BigEndian.Uint32(data[8:12])), 0).UTC(),
 		SequenceNo: binary.BigEndian.Uint32(data[12:16]),
 		SourceID:   binary.BigEndian.Uint32(data[16:20]),
 	}, nil
@@ -67,7 +69,7 @@ func (_ DecoderV9) ReadSetHeader(buf *bytes.Buffer) (SetHeader, error) {
 	var data [4]byte
 	n, err := buf.Read(data[:])
 	if n != len(data) || err != nil {
-		return SetHeader{}, ErrNoData
+		return SetHeader{}, io.EOF
 	}
 	return SetHeader{
 		SetID:  binary.BigEndian.Uint16(data[:2]),
@@ -89,23 +91,24 @@ func (d DecoderV9) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.
 func (d DecoderV9) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, length uint16, err error) {
 	var row [4]byte
 	if n, err := buf.Read(row[:]); err != nil || n != len(row) {
-		return field, length, ErrNoData
+		return field, length, io.EOF
 	}
 	field.FieldID = binary.BigEndian.Uint16(row[:2])
-	return field, binary.BigEndian.Uint16(row[2:]), nil
+	length = binary.BigEndian.Uint16(row[2:])
+	return field, length, nil
 }
 
-func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []template.FieldTemplate, totalLength int, err error) {
-	readFields = make([]template.FieldTemplate, count)
+func (d DecoderV9) ReadFields(buf *bytes.Buffer, count int) (record template.RecordTemplate, err error) {
+	record.Fields = make([]template.FieldTemplate, count)
 	for i := 0; i < count; i++ {
 		key, length, err := d.ReadFieldDefinition(buf)
 		if err != nil {
-			return nil, 0, ErrNoData
+			return template.RecordTemplate{}, io.EOF
 		}
 		field := template.FieldTemplate{
 			Length: length,
 		}
-		totalLength += int(field.Length)
+		record.TotalLength += int(field.Length)
 		if fieldInfo, found := fields.Fields[key]; found {
 			min, max := fieldInfo.Decoder.MinLength(), fieldInfo.Decoder.MaxLength()
 			if min <= field.Length && field.Length <= max {
@@ -116,9 +119,9 @@ func ReadFields(d Decoder, buf *bytes.Buffer, count int) (readFields []template.
 		} else {
 			logp.Warn("Field %v in template not found", key)
 		}
-		readFields[i] = field
+		record.Fields[i] = field
 	}
-	return readFields, totalLength, nil
+	return record, nil
 }
 
 func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Template, err error) {
@@ -128,20 +131,22 @@ func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Tem
 			return templates, nil
 		}
 		if n, err := buf.Read(row[:]); err != nil || n != len(row) {
-			return nil, ErrNoData
+			return nil, io.EOF
 		}
-		template := &template.RecordTemplate{
-			ID: binary.BigEndian.Uint16(row[:2]),
-		}
-		if template.ID < 256 {
+		tID := binary.BigEndian.Uint16(row[:2])
+		if tID < 256 {
 			return nil, errors.New("invalid template id")
 		}
 		count := int(binary.BigEndian.Uint16(row[2:]))
 		if buf.Len() < 2*count {
-			return nil, ErrNoData
+			return nil, io.EOF
 		}
-		template.Fields, template.TotalLength, err = ReadFields(d, buf, count)
-		templates = append(templates, template)
+		recordTemplate, err := d.ReadFields(buf, count)
+		if err != nil {
+			break
+		}
+		recordTemplate.ID = tID
+		templates = append(templates, &recordTemplate)
 	}
 	return templates, nil
 }
@@ -151,7 +156,7 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []templ
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
 			if err == nil {
-				err = ErrNoData
+				err = io.EOF
 			}
 			return nil, err
 		}
@@ -160,22 +165,22 @@ func ReadOptionsTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []templ
 		optsLen := int(binary.BigEndian.Uint16(header[4:]))
 		length := optsLen + scopeLen
 		if buf.Len() < int(length) {
-			return nil, ErrNoData
+			return nil, io.EOF
 		}
 		if scopeLen&3 != 0 || optsLen&3 != 0 {
 			return nil, fmt.Errorf("odd length for options template. scope=%d options=%d", scopeLen, optsLen)
 		}
-		template := &template.OptionsTemplate{
-			ID: tID,
-		}
-		template.Scope, template.TotalLength, err = ReadFields(d, buf, scopeLen/4)
+		scope, err := d.ReadFields(buf, scopeLen/4)
 		if err != nil {
 			return nil, err
 		}
-		var extraLen int
-		template.Options, extraLen, err = ReadFields(d, buf, optsLen/4)
-		template.TotalLength += extraLen
-		templates = append(templates, template)
+		options, err := d.ReadFields(buf, optsLen/4)
+		templates = append(templates, &template.OptionsTemplate{
+			ID:          tID,
+			Scope:       scope.Fields,
+			Options:     options.Fields,
+			TotalLength: scope.TotalLength + options.TotalLength,
+		})
 	}
 	return templates, nil
 }

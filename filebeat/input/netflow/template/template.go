@@ -19,6 +19,7 @@ package template
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
@@ -27,7 +28,13 @@ import (
 	"github.com/elastic/beats/libbeat/logp"
 )
 
-var ErrNoData = errors.New("not enough data")
+const (
+	VariableLength uint16 = 0xffff
+)
+
+var (
+	ErrOverflow = errors.New("template fields overflow record")
+)
 
 type Template interface {
 	TemplateID() uint16
@@ -39,22 +46,35 @@ type FieldTemplate struct {
 	Info   *fields.Field
 }
 
-func PopulateFieldMap(dest common.MapStr, fields []FieldTemplate, buf []byte, pos int) (int, error) {
+func PopulateFieldMap(dest common.MapStr, fields []FieldTemplate, variableLength bool, buf []byte, pos int) (endPos int, err error) {
 	limit := len(buf)
 	for _, field := range fields {
 		if pos >= limit {
-			return 0, errors.New("template fields overflow record")
+			return 0, ErrOverflow
+		}
+		length := field.Length
+		if variableLength && length == VariableLength {
+			length = uint16(buf[pos])
+			pos++
+			if length == 255 {
+				if pos+2 > limit {
+					return 0, ErrOverflow
+				}
+				length = binary.BigEndian.Uint16(buf[pos : pos+2])
+				pos += 2
+			}
+		}
+		if pos+int(length) > limit {
+			return 0, ErrOverflow
 		}
 		if fieldInfo := field.Info; fieldInfo != nil {
-			value, err := fieldInfo.Decoder.Decode(buf[pos : pos+int(field.Length)])
+			value, err := fieldInfo.Decoder.Decode(buf[pos : pos+int(length)])
 			if err != nil {
 				logp.Warn("Unable to decode field '%s' in template", fieldInfo.Name)
 			}
-			if len(fieldInfo.Name) > 0 {
-				dest[fieldInfo.Name] = value
-			}
+			dest[fieldInfo.Name] = value
 		}
-		pos += int(field.Length)
+		pos += int(length)
 	}
 	return pos, nil
 }

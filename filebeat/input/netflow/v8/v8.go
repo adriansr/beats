@@ -81,7 +81,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 4, Info: &fields.Field{Name: "flowStartSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 1, Info: &fields.Field{Name: "protocolIdentifier", Decoder: fields.Unsigned8}},
-			{Length: 3, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 3},
 			{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
 			{Length: 2, Info: &fields.Field{Name: "destinationTransportPort", Decoder: fields.Unsigned16}},
 		},
@@ -95,10 +95,10 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 4, Info: &fields.Field{Name: "flowStartSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 4, Info: &fields.Field{Name: "destinationIPv4Prefix", Decoder: fields.Ipv4Address}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 			{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 		},
 		TotalLength: 32,
 	},
@@ -110,10 +110,10 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 4, Info: &fields.Field{Name: "flowStartSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 4, Info: &fields.Field{Name: "sourceIPv4Prefix", Decoder: fields.Ipv4Address}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 			{Length: 2, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 		},
 		TotalLength: 32,
 	},
@@ -126,7 +126,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 4, Info: &fields.Field{Name: "sourceIPv4Prefix", Decoder: fields.Ipv4Address}},
 			{Length: 4, Info: &fields.Field{Name: "destinationIPv4Prefix", Decoder: fields.Ipv4Address}},
-			{Length: 4, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 4},
 			{Length: 2, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
@@ -146,7 +146,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
 			{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
-			{Length: 3, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 3},
 		},
 		TotalLength: 32,
 	},
@@ -159,7 +159,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 4, Info: &fields.Field{Name: "flowEndSysUpTime", Decoder: fields.Unsigned32}},
 			{Length: 1, Info: &fields.Field{Name: "protocolIdentifier", Decoder: fields.Unsigned8}},
 			{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 			{Length: 2, Info: &fields.Field{Name: "sourceTransportPort", Decoder: fields.Unsigned16}},
 			{Length: 2, Info: &fields.Field{Name: "destinationTransportPort", Decoder: fields.Unsigned16}},
 			{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
@@ -200,7 +200,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
 			{Length: 2, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 		},
 		TotalLength: 32,
 	},
@@ -216,7 +216,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
 			{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.OctetArray}},
+			{Length: 2},
 		},
 		TotalLength: 32,
 	},
@@ -232,7 +232,7 @@ var templates = map[uint8]template.RecordTemplate{
 			{Length: 1, Info: &fields.Field{Name: "destinationIPv4PrefixLength", Decoder: fields.Unsigned8}},
 			{Length: 1, Info: &fields.Field{Name: "sourceIPv4PrefixLength", Decoder: fields.Unsigned8}},
 			{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
-			{Length: 1, Info: &fields.Field{Decoder: fields.Unsigned8}},
+			{Length: 1},
 			{Length: 2, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "bgpDestinationAsNumber", Decoder: fields.Unsigned32}},
 			{Length: 2, Info: &fields.Field{Name: "ingressInterface", Decoder: fields.Unsigned32}},
@@ -273,7 +273,7 @@ var templates = map[uint8]template.RecordTemplate{
 			// Warning: This is documented as "marked_tos: Type of Service of the packets that exceeded the contract"
 			//          but I can't find a V9 field for it.
 			{Length: 1, Info: &fields.Field{Name: "postIpClassOfService", Decoder: fields.Unsigned8}},
-			{Length: 2, Info: &fields.Field{Decoder: fields.Unsigned16}}, // Padding
+			{Length: 2}, // Padding
 			// Warning: This is documented as "extraPkts: Packets that exceeded the contract"
 			//          but I can't find a V9 field for it.
 			{Length: 4, Info: &fields.Field{Name: "droppedPacketDeltaCount", Decoder: fields.Unsigned64}},
@@ -299,7 +299,7 @@ var templates = map[uint8]template.RecordTemplate{
 			// Warning: This is documented as "marked_tos: Type of Service of the packets that exceeded the contract"
 			//          but I can't find a V9 field for it.
 			{Length: 1, Info: &fields.Field{Name: "postIpClassOfService", Decoder: fields.Unsigned8}},
-			{Length: 1, Info: &fields.Field{Decoder: fields.Unsigned8}}, // Padding
+			{Length: 1}, // Padding
 			// Warning: This is documented as "extraPkts: Packets that exceeded the contract"
 			//          but I can't find a V9 field for it.
 			{Length: 4, Info: &fields.Field{Name: "droppedPacketDeltaCount", Decoder: fields.Unsigned64}},

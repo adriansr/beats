@@ -19,15 +19,17 @@ package template
 
 import (
 	"bytes"
+	"io"
 
 	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/libbeat/common"
 )
 
 type RecordTemplate struct {
-	ID          uint16
-	Fields      []FieldTemplate
-	TotalLength int
+	ID             uint16
+	Fields         []FieldTemplate
+	TotalLength    int
+	VariableLength bool
 }
 
 func (t RecordTemplate) TemplateID() uint16 {
@@ -55,18 +57,18 @@ func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, erro
 
 func (t *RecordTemplate) ApplyOne(data *bytes.Buffer) (ev record.Record, err error) {
 	if data.Len() != t.TotalLength {
-		return ev, ErrNoData
+		return ev, io.EOF
 	}
 	buf := make([]byte, t.TotalLength)
 	n, err := data.Read(buf)
 	if err != nil || n < int(t.TotalLength) {
-		return ev, ErrNoData
+		return ev, io.EOF
 	}
 	ev = record.Record{
 		Type:   record.Flow,
 		Fields: common.MapStr{},
 	}
-	if _, err = PopulateFieldMap(ev.Fields, t.Fields, buf, 0); err != nil {
+	if _, err = PopulateFieldMap(ev.Fields, t.Fields, t.VariableLength, buf, 0); err != nil {
 		return ev, err
 	}
 	return ev, nil
