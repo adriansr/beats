@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/record"
+	template2 "github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/stretchr/testify/assert"
@@ -126,5 +127,5 @@ func TestNetflowProtocol_BadPacket(t *testing.T) {
 }
 
 func TestTemplate(t *testing.T) {
-	test.ValidateTemplate(t, template)
+	template2.ValidateTemplate(t, template)
 }

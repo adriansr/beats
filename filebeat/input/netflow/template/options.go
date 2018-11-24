@@ -62,27 +62,19 @@ func (t *OptionsTemplate) ApplyOne(data *bytes.Buffer) (ev record.Record, err er
 	if data.Len() != t.TotalLength {
 		return ev, io.EOF
 	}
-	buf := make([]byte, t.TotalLength)
-	n, err := data.Read(buf)
-	if err != nil || n < int(t.TotalLength) {
-		return ev, io.EOF
-	}
 	scope := common.MapStr{}
 	options := common.MapStr{}
 	ev = record.Record{
-		// TODO: Time of reception for stored flow records
 		Type: record.Options,
 		Fields: common.MapStr{
 			"scope":   scope,
 			"options": options,
 		},
 	}
-	pos, err := PopulateFieldMap(scope, t.Scope, t.VariableLength, buf, 0)
-	if err != nil {
+	if err = PopulateFieldMap(scope, t.Scope, t.VariableLength, data); err != nil {
 		return ev, err
 	}
-	pos, err = PopulateFieldMap(options, t.Options, t.VariableLength, buf, pos)
-	if err != nil {
+	if err = PopulateFieldMap(options, t.Options, t.VariableLength, data); err != nil {
 		return ev, err
 	}
 	return ev, nil

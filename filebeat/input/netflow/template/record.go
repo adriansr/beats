@@ -20,6 +20,7 @@ package template
 import (
 	"bytes"
 	"io"
+	"math"
 
 	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/libbeat/common"
@@ -44,10 +45,21 @@ func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, erro
 	if n == 0 {
 		n = data.Len() / t.TotalLength
 	}
-	events := make([]record.Record, 0, n)
-	for i := 0; i < n; i++ {
-		event, err := t.ApplyOne(bytes.NewBuffer(data.Next(t.TotalLength)))
+	limit, alloc := n, n
+	if t.VariableLength {
+		limit = math.MaxInt16
+		alloc = n
+		if alloc > 16 {
+			alloc = 16
+		}
+	}
+	events := make([]record.Record, 0, alloc)
+	for i := 0; i < limit; i++ {
+		event, err := t.applyOne(data)
 		if err != nil {
+			if err == io.EOF && t.VariableLength {
+				break
+			}
 			return events, err
 		}
 		events = append(events, event)
@@ -55,20 +67,12 @@ func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, erro
 	return events, nil
 }
 
-func (t *RecordTemplate) ApplyOne(data *bytes.Buffer) (ev record.Record, err error) {
-	if data.Len() != t.TotalLength {
-		return ev, io.EOF
-	}
-	buf := make([]byte, t.TotalLength)
-	n, err := data.Read(buf)
-	if err != nil || n < int(t.TotalLength) {
-		return ev, io.EOF
-	}
+func (t *RecordTemplate) applyOne(data *bytes.Buffer) (ev record.Record, err error) {
 	ev = record.Record{
 		Type:   record.Flow,
 		Fields: common.MapStr{},
 	}
-	if _, err = PopulateFieldMap(ev.Fields, t.Fields, t.VariableLength, buf, 0); err != nil {
+	if err = PopulateFieldMap(ev.Fields, t.Fields, t.VariableLength, data); err != nil {
 		return ev, err
 	}
 	return ev, nil

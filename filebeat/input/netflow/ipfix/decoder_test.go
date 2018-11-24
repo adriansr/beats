@@ -143,7 +143,7 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 			assert.Equal(t, tc.expected.TotalLength, record.TotalLength)
 			assert.Equal(t, tc.expected.VariableLength, record.VariableLength)
 			assert.Equal(t, tc.expected.ID, record.ID)
-			test.AssertFieldsEquals(t, tc.expected.Fields, record.Fields)
+			template.AssertFieldsEquals(t, tc.expected.Fields, record.Fields)
 		})
 	}
 }
@@ -267,7 +267,7 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 			assert.Equal(t, tc.err, err)
 			if assert.Len(t, templates, len(tc.expected)) {
 				for idx := range tc.expected {
-					test.AssertTemplateEquals(t, tc.expected[idx], templates[idx])
+					template.AssertTemplateEquals(t, tc.expected[idx], templates[idx])
 				}
 			}
 		})
@@ -341,7 +341,7 @@ func TestReadTemplateFlowSet(t *testing.T) {
 			assert.Equal(t, tc.err, err)
 			if assert.Len(t, templates, len(tc.expected)) {
 				for idx := range tc.expected {
-					test.AssertTemplateEquals(t, tc.expected[idx], templates[idx])
+					template.AssertTemplateEquals(t, tc.expected[idx], templates[idx])
 				}
 			}
 		})

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/record"
+	template2 "github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ import (
 
 func TestTemplates(t *testing.T) {
 	for code, template := range templates {
-		if !test.ValidateTemplate(t, template) {
+		if !template2.ValidateTemplate(t, template) {
 			t.Fatal("Failed validating template for V8 record", code)
 		}
 	}
@@ -628,7 +629,7 @@ func TestNetflowV8Protocol_OnPacket(t *testing.T) {
 					return
 				}
 				t.Logf("fields: %+v", flow[0].Fields)
-				test.AssertFlowsEqual(t, testCase.expected, flow[0])
+				test.AssertRecordsEqual(t, testCase.expected, flow[0])
 			} else {
 				assert.Empty(t, flow)
 			}

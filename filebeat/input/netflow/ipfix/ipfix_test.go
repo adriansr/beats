@@ -82,7 +82,7 @@ func TestMessageWithOptions(t *testing.T) {
 	proto := New()
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:1234"))
 	if assert.Len(t, flows, 7) {
-		test.AssertFlowsEqual(t, expected, flows[0])
+		test.AssertRecordsEqual(t, expected, flows[0])
 		assert.Equal(t, record.Options, flows[0].Type)
 		for i := 1; i < len(flows); i++ {
 			assert.Equal(t, record.Flow, flows[i].Type)
