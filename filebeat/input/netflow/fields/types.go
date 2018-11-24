@@ -104,10 +104,6 @@ func (u SignedDecoder) Decode(data []byte) (interface{}, error) {
 	case 8:
 		return int64(binary.BigEndian.Uint64(data)), nil
 	default:
-		/* RFC7011 (IPFIX) § 6.2 "Reduced-Size Encoding"
-		   It is unclear to me whether sign-extension should be applied to
-		   reduced-size encoded integers.
-		*/
 		value := uint64(data[0])
 		if value&0x80 != 0 {
 			value |= ^uint64(0xFF)
