@@ -20,7 +20,7 @@ func buildDecoderByNameMap() {
 	}
 }
 
-func ValidateTemplate(t testing.TB, template RecordTemplate) bool {
+func ValidateTemplate(t testing.TB, template *Template) bool {
 	once.Do(buildDecoderByNameMap)
 
 	sum := 0
@@ -45,7 +45,8 @@ func ValidateTemplate(t testing.TB, template RecordTemplate) bool {
 			}
 		}
 	}
-	return assert.Equal(t, template.TotalLength, sum)
+	return assert.Equal(t, template.TotalLength, sum) &&
+		assert.Equal(t, 0, template.ScopeFields)
 }
 
 func AssertFieldsEquals(t testing.TB, expected []FieldTemplate, actual []FieldTemplate) (succeeded bool) {
@@ -58,34 +59,16 @@ func AssertFieldsEquals(t testing.TB, expected []FieldTemplate, actual []FieldTe
 	return
 }
 
-func AssertTemplateEquals(t testing.TB, expected Template, actual Template) bool {
+func AssertTemplateEquals(t testing.TB, expected *Template, actual *Template) bool {
 	if expected == nil && actual == nil {
 		return true
 	}
 	if !assert.True(t, (expected == nil) == (actual == nil)) {
 		return false
 	}
-	switch v := expected.(type) {
-	case *RecordTemplate:
-		w, ok := actual.(*RecordTemplate)
-		if !assert.True(t, ok) {
-			return false
-		}
-		assert.Equal(t, v.VariableLength, w.VariableLength)
-		assert.Equal(t, v.TotalLength, w.TotalLength)
-		assert.Equal(t, v.ID, w.ID)
-		return AssertFieldsEquals(t, v.Fields, w.Fields)
-
-	case *OptionsTemplate:
-		w, ok := actual.(*OptionsTemplate)
-		if !assert.True(t, ok) {
-			return false
-		}
-		assert.Equal(t, v.VariableLength, w.VariableLength)
-		assert.Equal(t, v.TotalLength, w.TotalLength)
-		assert.Equal(t, v.ID, w.ID)
-		return AssertFieldsEquals(t, v.Scope, w.Scope) &&
-			AssertFieldsEquals(t, v.Options, w.Options)
-	}
-	return false
+	assert.Equal(t, expected.VariableLength, actual.VariableLength)
+	assert.Equal(t, expected.TotalLength, actual.TotalLength)
+	assert.Equal(t, expected.ScopeFields, actual.ScopeFields)
+	assert.Equal(t, actual.ID, actual.ID)
+	return AssertFieldsEquals(t, actual.Fields, actual.Fields)
 }

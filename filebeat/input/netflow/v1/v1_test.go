@@ -127,5 +127,5 @@ func TestNetflowProtocol_BadPacket(t *testing.T) {
 }
 
 func TestTemplate(t *testing.T) {
-	template2.ValidateTemplate(t, template)
+	template2.ValidateTemplate(t, &template)
 }

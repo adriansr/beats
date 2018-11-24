@@ -26,18 +26,7 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 )
 
-type RecordTemplate struct {
-	ID             uint16
-	Fields         []FieldTemplate
-	TotalLength    int
-	VariableLength bool
-}
-
-func (t RecordTemplate) TemplateID() uint16 {
-	return t.ID
-}
-
-func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, error) {
+func (t *Template) Apply(data *bytes.Buffer, n int) ([]record.Record, error) {
 	if t.TotalLength == 0 {
 		// TODO: Empty template
 		return nil, nil
@@ -53,9 +42,13 @@ func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, erro
 			alloc = 16
 		}
 	}
+	makeFn := t.makeFlow
+	if t.ScopeFields > 0 {
+		makeFn = t.makeOptions
+	}
 	events := make([]record.Record, 0, alloc)
 	for i := 0; i < limit; i++ {
-		event, err := t.applyOne(data)
+		event, err := makeFn(data)
 		if err != nil {
 			if err == io.EOF && t.VariableLength {
 				break
@@ -67,12 +60,31 @@ func (t *RecordTemplate) Apply(data *bytes.Buffer, n int) ([]record.Record, erro
 	return events, nil
 }
 
-func (t *RecordTemplate) applyOne(data *bytes.Buffer) (ev record.Record, err error) {
+func (t *Template) makeFlow(data *bytes.Buffer) (ev record.Record, err error) {
 	ev = record.Record{
 		Type:   record.Flow,
 		Fields: common.MapStr{},
 	}
 	if err = PopulateFieldMap(ev.Fields, t.Fields, t.VariableLength, data); err != nil {
+		return ev, err
+	}
+	return ev, nil
+}
+
+func (t *Template) makeOptions(data *bytes.Buffer) (ev record.Record, err error) {
+	scope := common.MapStr{}
+	options := common.MapStr{}
+	ev = record.Record{
+		Type: record.Options,
+		Fields: common.MapStr{
+			"scope":   scope,
+			"options": options,
+		},
+	}
+	if err = PopulateFieldMap(scope, t.Fields[:t.ScopeFields], t.VariableLength, data); err != nil {
+		return ev, err
+	}
+	if err = PopulateFieldMap(options, t.Fields[t.ScopeFields:], t.VariableLength, data); err != nil {
 		return ev, err
 	}
 	return ev, nil

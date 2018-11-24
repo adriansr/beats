@@ -57,7 +57,7 @@ const (
 	PrePortProtocol
 )
 
-var templates = map[uint8]template.RecordTemplate{
+var templates = map[uint8]*template.Template{
 	RouterAS: {
 		Fields: []template.FieldTemplate{
 			//  observedFlowTotalCount

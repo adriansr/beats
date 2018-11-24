@@ -40,9 +40,9 @@ const (
 type Decoder interface {
 	ReadPacketHeader(*bytes.Buffer) (PacketHeader, error)
 	ReadSetHeader(*bytes.Buffer) (SetHeader, error)
-	ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error)
+	ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]*template.Template, error)
 	ReadFieldDefinition(*bytes.Buffer) (field fields.Key, length uint16, err error)
-	ReadFields(buf *bytes.Buffer, count int) (record template.RecordTemplate, err error)
+	ReadFields(buf *bytes.Buffer, count int) (record template.Template, err error)
 }
 
 type DecoderV9 struct{}
@@ -77,7 +77,7 @@ func (_ DecoderV9) ReadSetHeader(buf *bytes.Buffer) (SetHeader, error) {
 	}, nil
 }
 
-func (d DecoderV9) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error) {
+func (d DecoderV9) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]*template.Template, error) {
 	switch setID {
 	case TemplateFlowSetID:
 		return ReadTemplateFlowSet(d, buf)
@@ -98,12 +98,12 @@ func (d DecoderV9) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, len
 	return field, length, nil
 }
 
-func (d DecoderV9) ReadFields(buf *bytes.Buffer, count int) (record template.RecordTemplate, err error) {
+func (d DecoderV9) ReadFields(buf *bytes.Buffer, count int) (record template.Template, err error) {
 	record.Fields = make([]template.FieldTemplate, count)
 	for i := 0; i < count; i++ {
 		key, length, err := d.ReadFieldDefinition(buf)
 		if err != nil {
-			return template.RecordTemplate{}, io.EOF
+			return template.Template{}, io.EOF
 		}
 		field := template.FieldTemplate{
 			Length: length,
@@ -124,7 +124,7 @@ func (d DecoderV9) ReadFields(buf *bytes.Buffer, count int) (record template.Rec
 	return record, nil
 }
 
-func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Template, err error) {
+func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []*template.Template, err error) {
 	var row [4]byte
 	for {
 		if buf.Len() < 4 {
@@ -151,7 +151,7 @@ func ReadTemplateFlowSet(d Decoder, buf *bytes.Buffer) (templates []template.Tem
 	return templates, nil
 }
 
-func (d DecoderV9) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []template.Template, err error) {
+func (d DecoderV9) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []*template.Template, err error) {
 	var header [6]byte
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
@@ -170,20 +170,16 @@ func (d DecoderV9) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []te
 		if buf.Len() < int(length) {
 			return nil, io.EOF
 		}
-		if scopeLen&3 != 0 || optsLen&3 != 0 {
-			return nil, fmt.Errorf("odd length for options template. scope=%d options=%d", scopeLen, optsLen)
+		if scopeLen == 0 || scopeLen&3 != 0 || optsLen&3 != 0 {
+			return nil, fmt.Errorf("bad length for options template. scope=%d options=%d", scopeLen, optsLen)
 		}
-		scope, err := d.ReadFields(buf, scopeLen/4)
+		template, err := d.ReadFields(buf, (scopeLen+optsLen)/4)
 		if err != nil {
 			return nil, err
 		}
-		options, err := d.ReadFields(buf, optsLen/4)
-		templates = append(templates, &template.OptionsTemplate{
-			ID:          tID,
-			Scope:       scope.Fields,
-			Options:     options.Fields,
-			TotalLength: scope.TotalLength + options.TotalLength,
-		})
+		template.ID = tID
+		template.ScopeFields = scopeLen / 4
+		templates = append(templates, &template)
 	}
 	return templates, nil
 }

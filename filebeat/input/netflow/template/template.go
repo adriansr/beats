@@ -23,7 +23,6 @@ import (
 	"io"
 
 	"github.com/elastic/beats/filebeat/input/netflow/fields"
-	"github.com/elastic/beats/filebeat/input/netflow/record"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -32,9 +31,12 @@ const (
 	VariableLength uint16 = 0xffff
 )
 
-type Template interface {
-	TemplateID() uint16
-	Apply(data *bytes.Buffer, num int) ([]record.Record, error)
+type Template struct {
+	ID             uint16
+	Fields         []FieldTemplate
+	TotalLength    int
+	VariableLength bool
+	ScopeFields    int
 }
 
 type FieldTemplate struct {
@@ -67,6 +69,7 @@ func PopulateFieldMap(dest common.MapStr, fields []FieldTemplate, variableLength
 			value, err := fieldInfo.Decoder.Decode(raw)
 			if err != nil {
 				logp.Warn("Unable to decode field '%s' in template", fieldInfo.Name)
+				continue
 			}
 			dest[fieldInfo.Name] = value
 		}

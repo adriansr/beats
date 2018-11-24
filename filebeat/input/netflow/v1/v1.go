@@ -37,7 +37,7 @@ const (
 	ProtocolID   uint16 = 1
 )
 
-var template = template2.RecordTemplate{
+var template = template2.Template{
 	ID: 0,
 	Fields: []template2.FieldTemplate{
 		{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
@@ -64,7 +64,7 @@ type ReadHeaderFn func(*bytes.Buffer, net.Addr) (int, time.Time, common.MapStr, 
 
 type NetflowProtocol struct {
 	logger       *logp.Logger
-	flowTemplate template2.Template
+	flowTemplate *template2.Template
 	version      uint16
 	readHeader   ReadHeaderFn
 }
@@ -77,7 +77,7 @@ func New() registry.Protocol {
 	return NewProtocol(ProtocolID, &template, readV1Header)
 }
 
-func NewProtocol(version uint16, template template2.Template, readHeader ReadHeaderFn) registry.Protocol {
+func NewProtocol(version uint16, template *template2.Template, readHeader ReadHeaderFn) registry.Protocol {
 	return &NetflowProtocol{
 		logger:       logp.NewLogger(fmt.Sprintf("netflow-v%d", version)),
 		flowTemplate: template,

@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/stretchr/testify/assert"
@@ -148,10 +147,9 @@ func TestOptionTemplates(t *testing.T) {
 		s, found := v9proto.Session.Sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 1)
-		otp := s.GetTemplate(1234, 999)
-		assert.NotNil(t, otp)
-		_, ok = otp.(*template.OptionsTemplate)
-		assert.True(t, ok)
+		opt := s.GetTemplate(1234, 999)
+		assert.NotNil(t, opt)
+		assert.True(t, opt.ScopeFields > 0)
 	})
 
 	t.Run("Multiple options template", func(t *testing.T) {
@@ -184,10 +182,9 @@ func TestOptionTemplates(t *testing.T) {
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 2)
 		for _, id := range []uint16{998, 999} {
-			otp := s.GetTemplate(1234, id)
-			assert.NotNil(t, otp)
-			_, ok = otp.(*template.OptionsTemplate)
-			assert.True(t, ok)
+			opt := s.GetTemplate(1234, id)
+			assert.NotNil(t, opt)
+			assert.True(t, opt.ScopeFields > 0)
 		}
 	})
 
@@ -217,8 +214,9 @@ func TestOptionTemplates(t *testing.T) {
 			// Version, Count, Uptime, Ts, SeqNo, Source
 			9, 1, 11, 11, 22, 22, 33, 33, 0, 1234,
 			// Set #1 (options template)
-			1, 10, /*len of set*/
-			9998, 0, 0,
+			1, 14, /*len of set*/
+			9998, 4, 0,
+			3, 4,
 		})
 		flows = proto.OnPacket(raw, addr)
 		assert.Empty(t, flows)

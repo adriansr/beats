@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/elastic/beats/filebeat/input/netflow/record"
-	"github.com/elastic/beats/filebeat/input/netflow/template"
 	"github.com/elastic/beats/filebeat/input/netflow/test"
 	"github.com/elastic/beats/filebeat/input/netflow/v9"
 	"github.com/elastic/beats/libbeat/common"
@@ -82,8 +81,8 @@ func TestMessageWithOptions(t *testing.T) {
 	proto := New()
 	flows := proto.OnPacket(raw, test.MakeAddress(t, "127.0.0.1:1234"))
 	if assert.Len(t, flows, 7) {
-		test.AssertRecordsEqual(t, expected, flows[0])
 		assert.Equal(t, record.Options, flows[0].Type)
+		test.AssertRecordsEqual(t, expected, flows[0])
 		for i := 1; i < len(flows); i++ {
 			assert.Equal(t, record.Flow, flows[i].Type)
 		}
@@ -118,10 +117,9 @@ func TestOptionTemplates(t *testing.T) {
 		s, found := v9proto.Session.Sessions[key]
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 1)
-		otp := s.GetTemplate(1234, 999)
-		assert.NotNil(t, otp)
-		_, ok = otp.(*template.OptionsTemplate)
-		assert.True(t, ok)
+		opt := s.GetTemplate(1234, 999)
+		assert.NotNil(t, opt)
+		assert.Equal(t, 1, opt.ScopeFields)
 	})
 
 	t.Run("Multiple options template", func(t *testing.T) {
@@ -155,10 +153,9 @@ func TestOptionTemplates(t *testing.T) {
 		assert.True(t, found)
 		assert.Len(t, s.Templates, 2)
 		for _, id := range []uint16{998, 999} {
-			otp := s.GetTemplate(1234, id)
-			assert.NotNil(t, otp)
-			_, ok = otp.(*template.OptionsTemplate)
-			assert.True(t, ok)
+			opt := s.GetTemplate(1234, id)
+			assert.NotNil(t, opt)
+			assert.True(t, opt.ScopeFields > 0)
 		}
 	})
 
@@ -189,8 +186,9 @@ func TestOptionTemplates(t *testing.T) {
 			// Version, Count, Ts, SeqNo, Source
 			10, 1, 11, 11, 22, 22, 0, 1234,
 			// Set #1 (options template)
-			3, 10, /*len of set*/
-			9998, 0, 0,
+			3, 14, /*len of set*/
+			9998, 1, 1,
+			3, 4,
 		})
 		flows = proto.OnPacket(raw, addr)
 		assert.Empty(t, flows)

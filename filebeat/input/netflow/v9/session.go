@@ -39,7 +39,7 @@ type TemplateKey struct {
 }
 
 type TemplateWrapper struct {
-	Template template.Template
+	Template *template.Template
 	Delete   atomic.Bool
 }
 
@@ -56,14 +56,14 @@ func NewSession() *SessionState {
 	}
 }
 
-func (s *SessionState) AddTemplate(sourceId uint32, t template.Template) {
-	key := TemplateKey{sourceId, t.TemplateID()}
+func (s *SessionState) AddTemplate(sourceId uint32, t *template.Template) {
+	key := TemplateKey{sourceId, t.ID}
 	s.Lock()
 	defer s.Unlock()
 	s.Templates[key] = &TemplateWrapper{Template: t}
 }
 
-func (s *SessionState) GetTemplate(sourceId uint32, id uint16) (template template.Template) {
+func (s *SessionState) GetTemplate(sourceId uint32, id uint16) (template *template.Template) {
 	key := TemplateKey{sourceId, id}
 	s.RLock()
 	defer s.RUnlock()

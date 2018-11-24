@@ -71,7 +71,7 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 		title    string
 		packet   []uint16
 		count    int
-		expected template.RecordTemplate
+		expected template.Template
 		err      error
 	}{
 		{
@@ -82,7 +82,7 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 				14, 2,
 			},
 			count: 3,
-			expected: template.RecordTemplate{
+			expected: template.Template{
 				Fields: []template.FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
 					{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
@@ -99,7 +99,7 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 				14, 2,
 			},
 			count: 3,
-			expected: template.RecordTemplate{
+			expected: template.Template{
 				Fields: []template.FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
 					{Length: 11},
@@ -117,7 +117,7 @@ func TestDecoderV9_ReadFields(t *testing.T) {
 				0, 5951,
 			},
 			count: 3,
-			expected: template.RecordTemplate{
+			expected: template.Template{
 				Fields: []template.FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
 					{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
@@ -154,7 +154,7 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 	for _, tc := range []struct {
 		title    string
 		packet   []uint16
-		expected []template.Template
+		expected []*template.Template
 		err      error
 	}{
 		{
@@ -167,58 +167,56 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 				998, 1, 1,
 				16, 4,
 			},
-			expected: []template.Template{
-				&template.OptionsTemplate{
+			expected: []*template.Template{
+				{
 					ID:          999,
 					TotalLength: 7,
-					Scope: []template.FieldTemplate{
+					ScopeFields: 1,
+					Fields: []template.FieldTemplate{
 						{Length: 4, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
-					},
-					Options: []template.FieldTemplate{
 						{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
 						{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
 					},
 				},
-				&template.OptionsTemplate{
+				{
 					ID:          998,
 					TotalLength: 4,
-					Scope: []template.FieldTemplate{
+					ScopeFields: 1,
+					Fields: []template.FieldTemplate{
 						{Length: 4, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
 					},
-					Options: []template.FieldTemplate{},
 				},
 			},
 		},
 		{
 			title: "variable length",
 			packet: []uint16{
-				999, 3, 1,
+				999, 3, 2,
 				1, 0xFFFF,
 				5, 1,
 				14, 2,
 				998, 1, 1,
 				16, 4,
 			},
-			expected: []template.Template{
-				&template.OptionsTemplate{
+			expected: []*template.Template{
+				{
 					ID:             999,
 					TotalLength:    4,
 					VariableLength: true,
-					Scope: []template.FieldTemplate{
+					ScopeFields:    2,
+					Fields: []template.FieldTemplate{
 						{Length: 0xFFFF, Info: &fields.Field{Name: "octetDeltaCount", Decoder: fields.Unsigned64}},
-					},
-					Options: []template.FieldTemplate{
 						{Length: 1, Info: &fields.Field{Name: "ipClassOfService", Decoder: fields.Unsigned8}},
 						{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
 					},
 				},
-				&template.OptionsTemplate{
+				{
 					ID:          998,
 					TotalLength: 4,
-					Scope: []template.FieldTemplate{
+					ScopeFields: 1,
+					Fields: []template.FieldTemplate{
 						{Length: 4, Info: &fields.Field{Name: "bgpSourceAsNumber", Decoder: fields.Unsigned32}},
 					},
-					Options: []template.FieldTemplate{},
 				},
 			},
 		},
@@ -274,13 +272,13 @@ func TestReadOptionsTemplateFlowSet(t *testing.T) {
 	}
 }
 
-func TestReadTemplateFlowSet(t *testing.T) {
+func TestReadRecordTemplateFlowSet(t *testing.T) {
 	logp.TestingSetup()
 	decoder := DecoderIPFix{}
 	for _, tc := range []struct {
 		title    string
 		packet   []uint16
-		expected []template.Template
+		expected []*template.Template
 		err      error
 	}{
 		{
@@ -293,8 +291,8 @@ func TestReadTemplateFlowSet(t *testing.T) {
 				998, 1,
 				16, 4,
 			},
-			expected: []template.Template{
-				&template.RecordTemplate{
+			expected: []*template.Template{
+				{
 					ID:          999,
 					TotalLength: 7,
 					Fields: []template.FieldTemplate{
@@ -303,7 +301,7 @@ func TestReadTemplateFlowSet(t *testing.T) {
 						{Length: 2, Info: &fields.Field{Name: "egressInterface", Decoder: fields.Unsigned32}},
 					},
 				},
-				&template.RecordTemplate{
+				{
 					ID:          998,
 					TotalLength: 4,
 					Fields: []template.FieldTemplate{

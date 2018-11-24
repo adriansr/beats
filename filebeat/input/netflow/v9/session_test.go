@@ -99,8 +99,8 @@ func TestSessionMap_GetOrCreate(t *testing.T) {
 	})
 }
 
-func testTemplate(id uint16) template.Template {
-	return &template.RecordTemplate{
+func testTemplate(id uint16) *template.Template {
+	return &template.Template{
 		ID: id,
 	}
 }

@@ -58,7 +58,7 @@ func (_ DecoderIPFix) ReadPacketHeader(buf *bytes.Buffer) (v9.PacketHeader, erro
 	}, nil
 }
 
-func (d DecoderIPFix) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]template.Template, error) {
+func (d DecoderIPFix) ReadTemplateSet(setID uint16, buf *bytes.Buffer) ([]*template.Template, error) {
 	switch setID {
 	case TemplateFlowSetID:
 		return v9.ReadTemplateFlowSet(d, buf)
@@ -86,7 +86,7 @@ func (d DecoderIPFix) ReadFieldDefinition(buf *bytes.Buffer) (field fields.Key, 
 	return field, length, nil
 }
 
-func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []template.Template, err error) {
+func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates []*template.Template, err error) {
 	var header [6]byte
 	for buf.Len() >= len(header) {
 		if n, err := buf.Read(header[:]); err != nil || n < len(header) {
@@ -101,34 +101,26 @@ func (d DecoderIPFix) ReadOptionsTemplateFlowSet(buf *bytes.Buffer) (templates [
 		}
 		totalCount := int(binary.BigEndian.Uint16(header[2:4]))
 		scopeCount := int(binary.BigEndian.Uint16(header[4:]))
-		if scopeCount > totalCount {
+		if scopeCount > totalCount || scopeCount == 0 {
 			return nil, fmt.Errorf("wrong counts in options template flowset: scope=%d total=%d", scopeCount, totalCount)
 		}
-		scope, err := d.ReadFields(buf, scopeCount)
+		template, err := d.ReadFields(buf, totalCount)
 		if err != nil {
 			return nil, err
 		}
-		options, err := d.ReadFields(buf, totalCount-scopeCount)
-		if err != nil {
-			return nil, err
-		}
-		templates = append(templates, &template.OptionsTemplate{
-			ID:             tID,
-			Scope:          scope.Fields,
-			Options:        options.Fields,
-			TotalLength:    scope.TotalLength + options.TotalLength,
-			VariableLength: scope.VariableLength || options.VariableLength,
-		})
+		template.ID = tID
+		template.ScopeFields = scopeCount
+		templates = append(templates, &template)
 	}
 	return templates, nil
 }
 
-func (d DecoderIPFix) ReadFields(buf *bytes.Buffer, count int) (record template.RecordTemplate, err error) {
+func (d DecoderIPFix) ReadFields(buf *bytes.Buffer, count int) (record template.Template, err error) {
 	record.Fields = make([]template.FieldTemplate, count)
 	for i := 0; i < count; i++ {
 		key, length, err := d.ReadFieldDefinition(buf)
 		if err != nil {
-			return template.RecordTemplate{}, io.EOF
+			return template.Template{}, io.EOF
 		}
 		field := template.FieldTemplate{
 			Length: length,

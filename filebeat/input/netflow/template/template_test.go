@@ -12,14 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRecordTemplate_Apply(t *testing.T) {
+func TestTemplate_Apply(t *testing.T) {
 	longField := make([]byte, 0x0456)
 	for i := range longField {
 		longField[i] = byte(i)
 	}
 	for _, tc := range []struct {
 		title    string
-		record   RecordTemplate
+		record   Template
 		data     []byte
 		count    int
 		expected []record.Record
@@ -27,13 +27,13 @@ func TestRecordTemplate_Apply(t *testing.T) {
 	}{
 		{
 			title: "empty template",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength: 0,
 			},
 		},
 		{
 			title: "single record guess length and pad",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength: 7,
 				Fields: []FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
@@ -58,7 +58,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "two records guess length",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength: 7,
 				Fields: []FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
@@ -92,7 +92,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "single record with count",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength: 7,
 				Fields: []FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
@@ -117,7 +117,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "single record with count excess",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength: 7,
 				Fields: []FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
@@ -143,7 +143,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "two records with count",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength: 7,
 				Fields: []FieldTemplate{
 					{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
@@ -177,7 +177,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "single record variable length guess count",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength:    6,
 				VariableLength: true,
 				Fields: []FieldTemplate{
@@ -205,7 +205,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "multiple record variable length guess count",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength:    6,
 				VariableLength: true,
 				Fields: []FieldTemplate{
@@ -244,7 +244,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 		},
 		{
 			title: "long variable length",
-			record: RecordTemplate{
+			record: Template{
 				TotalLength:    6,
 				VariableLength: true,
 				Fields: []FieldTemplate{
@@ -291,7 +291,7 @@ func TestRecordTemplate_Apply(t *testing.T) {
 func TestOptionsTemplate_Apply(t *testing.T) {
 	for _, tc := range []struct {
 		title    string
-		record   OptionsTemplate
+		record   Template
 		data     []byte
 		count    int
 		expected []record.Record

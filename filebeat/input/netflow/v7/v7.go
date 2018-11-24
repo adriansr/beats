@@ -35,7 +35,7 @@ const (
 	ProtocolID   uint16 = 7
 )
 
-var template = template2.RecordTemplate{
+var template = template2.Template{
 	ID: 0,
 	Fields: []template2.FieldTemplate{
 		{Length: 4, Info: &fields.Field{Name: "sourceIPv4Address", Decoder: fields.Ipv4Address}},
