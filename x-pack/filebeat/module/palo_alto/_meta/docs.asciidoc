@@ -1,0 +1,14 @@
+[role="xpack"]
+
+:modulename: palo_alto
+:has-dashboards: true
+
+== Palo Alto Networks module
+
+This is a module for ((TODO))
+
+:has-dashboards!:
+
+:fileset_ex!:
+
+:modulename!:
