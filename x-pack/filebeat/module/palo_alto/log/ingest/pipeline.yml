@@ -1,6 +1,142 @@
 description: "Pipeline for Palo Alto PAN-OS Logs"
-processors: ~
-on_failure: 
- - set: 
-     field: "error.message"
-     value: "{{ _ingest.on_failure_message }}"
+processors:
+
+ - set:
+     field: log.original
+     value: '{{ message }}'
+ - grok:
+     field: message
+     patterns:
+       - '(:?%{SYSLOGTIMESTAMP:_temp_.raw_date})? %{SYSLOGHOST:_temp_.host_name} %{GREEDYDATA:message}'
+
+#
+# Parse the date included in ASA logs
+#
+ - date:
+     field: "_temp_.raw_date"
+     ignore_failure: true
+     {< if .convert_timezone >}
+     timezone: "{{ event.timezone }}"
+     {< end >}
+     formats:
+       - "MMM  d HH:mm:ss"
+       - "MMM dd HH:mm:ss"
+
+ - split:
+     field: 'message'
+     separator: ','
+
+ - script:
+     lang: painless
+     params:
+       TRAFFIC:
+         - ~
+         - ~ # TODO '@timestamp'
+         - observer.serial_number #Serial Number
+         - ~ # TODO event.module #event.type #Type (event.module?) ??? CHECK
+         - ~ # TODO event.dataset #event.subtype #Subtype ??? CHECK
+         - ~
+         - ~ # TODO event.created
+         - source.ip # TODO CHECK if list possible
+         - destination.ip
+         - ~ # TODO source.nat.ip # CHECK ???
+         - ~ # TODO destination.nat.ip # CHECK ???
+         - ~ # observer.ruleset # Rule Name
+         - source.user.name # #Source User
+         - destination.user.name # Destination User
+         - network.application
+         - ~ # TODO Virtual System
+         - ~ # TODO Source Zone
+         - ~ # TODO Destination Zone
+         - ~ # TODO Ingress Interface
+         - ~ # TODO Egress Interface
+         - ~ # TODO Log Forwarding Profile
+         - ~
+         - ~ # TODO network.flow_id
+         - ~ # Repeat Count
+         - source.port
+         - destination.port
+         - ~ # TODO source.nat.port
+         - ~ # TODO destination.nat.port
+         - ~ # TODO Flags
+         - network.transport
+         - event.action
+         - network.bytes # Bytes
+         - source.bytes
+         - destination.bytes
+         - network.packets
+         - ~ # TODO Start Time (flow start)
+         - event.duration # Elapsed Time (TODO: secs to nanos)
+         - ~ # TODO Category
+         - ~
+         - ~ # Sequence Number
+         - ~ # Action Flags
+         - source.geo.country_iso_code # Source Location
+         - destination.geo.country_iso_code
+         - ~
+         - source.packets
+         - destination.packets
+         - ~ # Session End Reason
+         - ~ #Device Group Hierarchy Level 1
+         - ~ #Device Group Hierarchy Level 2
+         - ~ #Device Group Hierarchy Level 3
+         - ~ #Device Group Hierarchy Level 4
+         - ~ #Virtual System Name
+         - ~ #TODO Device Name
+         - ~ #TODO Action Source
+     source: >
+       void createAndSet(def ctx, List components, def value) {
+         int n = components.getLength();
+         try {
+           def map = ctx;
+           for (int i = 0; i < n - 1; i++) {
+             map = map.computeIfAbsent(components.get(i), x -> new HashMap());
+           }
+           map[components.get(n-1)] = value;
+         } catch (Exception e) { }
+       }
+       List split(String path) {
+         List res = new ArrayList();
+         int next, pos = 0;
+         while ( (next=path.indexOf('.',pos))>=0) {
+           if (pos < next - 1) {
+             res.add(path.substring(pos, next));
+           }
+           pos = next + 1;
+         }
+         if (pos < path.length()) {
+           res.add(path.substring(pos));
+         }
+         return res;
+       }
+       def msg = ctx.message;
+       int n = msg.size();
+       if (n < 3) return;
+       def mappings = params[msg[3]];
+       if (mappings == null) return;
+       if (mappings.size() < n)
+         n = mappings.size();
+       def dest = new HashMap();
+       ctx['palo_alto'] = dest;
+       for (int i=0; i<n; i++) {
+         def target = mappings[i];
+         def value = msg[i];
+         if (target != null && value != null && value.length() > 0) {
+           createAndSet(ctx, split(target), value);
+         }
+       }
+
+ - remove:
+     field:
+       #- message
+       - _temp_
+     ignore_missing: true
+
+on_failure:
+  - set:
+      field: "error.message"
+      value: "{{ _ingest.on_failure_message }}"
+  - remove:
+      field:
+        - _temp_
+      ignore_missing: true

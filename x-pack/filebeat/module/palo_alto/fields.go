@@ -19,5 +19,5 @@ func init() {
 // AssetPaloAlto returns asset data.
 // This is the base64 encoded gzipped contents of module/palo_alto.
 func AssetPaloAlto() string {
-	return "eJx0jjGuwjAQBXuf4pVJkX8AF79CdCgNPYrIJlhsvJa9KXJ75CiAg+CVo/WMG9xpsQgdy6VjFQOoU6Y96ildowvqxFv8GwA4ST8zYZCIqjq3h7auDTA44j7Z9aKB76YPUZ4ugSzGKHPYyBd93nGVYYgyQW/0FoFlTH/bXZkss/lPL/issvixgD/Cebvn5hEAAP//SVtQig=="
+	return "eJxsjjsOwjAQRHufYsqkCAdwQYXoUBp6ZOF1sNhkLXtT5PbIIYiPeOVo9GY63GmxSI7l4ljFABqV6TvyVK45Jo0yWewNAJzEz0wIktE05/7Qt60BQiT2xa6NDpMbf0QVXRJZDFnmtCV/9JXjKkPIMkJv9BaBZSi7rfc5+eQ1XF+ZRwAAAP//HNNBZA=="
 }
