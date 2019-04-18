@@ -12,15 +12,24 @@ processors:
 #
 # Parse the date included in ASA logs
 #
+# - date:
+#     field: "_temp_.raw_date"
+#     ignore_failure: true
+#     {< if .convert_timezone >}
+#     timezone: "{{ event.timezone }}"
+#     {< end >}
+#     formats:
+#       - "MMM  d HH:mm:ss"
+#       - "MMM dd HH:mm:ss"
+
  - date:
-     field: "_temp_.raw_date"
+     field: "_temp_.receive_time"
      ignore_failure: true
      {< if .convert_timezone >}
      timezone: "{{ event.timezone }}"
      {< end >}
      formats:
-       - "MMM  d HH:mm:ss"
-       - "MMM dd HH:mm:ss"
+       - "yyyy/MM/dd HH:mm:ss"
 
   - foreach:
       field: _temp_.to_int
@@ -35,7 +44,7 @@ processors:
  - remove:
      field:
        - message
-       - _temp_
+       #- _temp_
      ignore_missing: true
 
 on_failure:
@@ -44,5 +53,5 @@ on_failure:
       value: "{{ _ingest.on_failure_message }}"
   - remove:
       field:
-        - _temp_
+        #- _temp_
       ignore_missing: true

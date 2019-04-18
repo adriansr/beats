@@ -26,9 +26,10 @@ processors:
         message: _temp_.raw_csv
   - extract_array:
       field: _temp_.raw_csv
+      overwrite_keys: true
       mappings:
         _temp_.syslog_header: 0
-        '@timestamp': 1
+        _temp_.receive_time: 1
         observer.serial_number: 2
         _temp_.message_type: 3
   - extract_array:
@@ -36,6 +37,7 @@ processors:
         equals:
           _temp_.message_type: TRAFFIC
       field: _temp_.raw_csv
+      overwrite_keys: true
       mappings:
         observer.serial_number : 3
         source.ip : 8
