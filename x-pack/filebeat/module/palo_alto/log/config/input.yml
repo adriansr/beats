@@ -21,3 +21,51 @@ processors:
 {{ if .convert_timezone }}
   - add_locale: ~
 {{ end }}
+  - decode_csv_fields:
+      fields:
+        message: _temp_.raw_csv
+  - extract_array:
+      field: _temp_.raw_csv
+      mappings:
+        _temp_.syslog_header: 0
+        '@timestamp': 1
+        observer.serial_number: 2
+        _temp_.message_type: 3
+  - extract_array:
+      when:
+        equals:
+          _temp_.message_type: TRAFFIC
+      field: _temp_.raw_csv
+      mappings:
+        observer.serial_number : 3
+        source.ip : 8
+        destination.ip: 9
+        source.user.name : 13
+        destination.user.name : 14
+        network.application: 15
+        source.port: 25
+        destination.port: 26
+        network.transport: 30
+        event.action: 31
+        network.bytes : 32
+        source.bytes: 33
+        destination.bytes: 34
+        network.packets: 35
+        event.duration : 37
+        source.geo.country_iso_code : 42
+        destination.geo.country_iso_code: 43
+        source.packets: 45
+        destination.packets: 46
+  - add_fields:
+      target: _temp_
+      fields:
+        to_int:
+          - source.port
+          - destination.port
+          - network.bytes
+          - source.bytes
+          - destination.bytes
+          - network.packets
+          - event.duration
+          - source.packets
+          - destination.packets
