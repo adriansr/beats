@@ -152,7 +152,10 @@ function azureADLogonSchema(debug) {
        evt.Put("event.category", "authentication");
        var outcome = evt.Get("event.outcome");
        if (outcome != null && outcome !== "unknown") {
-           evt.Put("event.type", "authentication_" + outcome);
+           // As event.type is an array, this sets both the traditional
+           // "authentication_success"/"authentication_failure"
+           // and the soon to be ECS standard "start".
+           evt.Put("event.type", ["authentication_" + outcome, "start"]);
        }
     });
     return builder.Build();

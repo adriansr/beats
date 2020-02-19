@@ -12,7 +12,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 0,
@@ -83,7 +86,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 1450,
@@ -154,7 +160,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 2901,
@@ -225,7 +234,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 4293,
@@ -296,7 +308,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 5744,
@@ -367,7 +382,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 7137,
@@ -438,7 +456,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 8587,
@@ -509,7 +530,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 10037,
@@ -580,7 +604,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 11429,
@@ -651,7 +678,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 12822,
@@ -722,7 +752,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 14214,
@@ -793,7 +826,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 15664,
@@ -864,7 +900,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 17114,
@@ -935,7 +974,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 18564,
@@ -1006,7 +1048,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 20013,
@@ -1077,7 +1122,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 21463,
@@ -1148,7 +1196,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 22913,
@@ -1219,7 +1270,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 24306,
@@ -1290,7 +1344,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 25755,
@@ -1361,7 +1418,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 27205,
@@ -1432,7 +1492,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 28655,
@@ -1503,7 +1566,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 30048,
@@ -1574,7 +1640,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 31498,
@@ -1645,7 +1714,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 32948,
@@ -1716,7 +1788,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 34398,
@@ -1787,7 +1862,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 35847,
@@ -1858,7 +1936,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 37297,
@@ -1929,7 +2010,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 38748,
@@ -2000,7 +2084,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 40199,
@@ -2071,7 +2158,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 41650,
@@ -2141,7 +2231,10 @@
         "event.module": "o365",
         "event.outcome": "failure",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_failure",
+        "event.type": [
+            "authentication_failure",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 43031,
@@ -2213,7 +2306,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 44539,
@@ -2273,7 +2369,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 45648,
@@ -2344,7 +2443,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 47098,
@@ -2404,7 +2506,10 @@
         "event.module": "o365",
         "event.outcome": "failure",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_failure",
+        "event.type": [
+            "authentication_failure",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 48207,
@@ -2476,7 +2581,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 49715,
@@ -2536,7 +2644,10 @@
         "event.module": "o365",
         "event.outcome": "failure",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_failure",
+        "event.type": [
+            "authentication_failure",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 50824,
@@ -2608,7 +2719,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 52332,
@@ -2679,7 +2793,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 53782,
@@ -2750,7 +2867,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 55232,
@@ -2810,7 +2930,10 @@
         "event.module": "o365",
         "event.outcome": "failure",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_failure",
+        "event.type": [
+            "authentication_failure",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 56341,
@@ -2882,7 +3005,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 57849,
@@ -2953,7 +3079,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 59299,
@@ -3024,7 +3153,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 60750,
@@ -3095,7 +3227,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 62199,
@@ -3155,7 +3290,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 63308,
@@ -3226,7 +3364,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 64758,
@@ -3297,7 +3438,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 66208,
@@ -3368,7 +3512,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 67601,
@@ -3439,7 +3586,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 69051,
@@ -3510,7 +3660,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 70444,
@@ -3581,7 +3734,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 71895,
@@ -3652,7 +3808,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 73345,
@@ -3723,7 +3882,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 74795,
@@ -3794,7 +3956,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 76246,
@@ -3865,7 +4030,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 77696,
@@ -3936,7 +4104,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 79146,
@@ -4007,7 +4178,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 80596,
@@ -4078,7 +4252,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 82047,
@@ -4149,7 +4326,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 83439,
@@ -4220,7 +4400,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 84890,
@@ -4291,7 +4474,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 86340,
@@ -4362,7 +4548,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 87732,
@@ -4433,7 +4622,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 89182,
@@ -4504,7 +4696,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 90575,
@@ -4575,7 +4770,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 91967,
@@ -4646,7 +4844,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 93417,
@@ -4717,7 +4918,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 94867,
@@ -4788,7 +4992,10 @@
         "event.module": "o365",
         "event.outcome": "success",
         "event.provider": "AzureActiveDirectory",
-        "event.type": "authentication_success",
+        "event.type": [
+            "authentication_success",
+            "start"
+        ],
         "fileset.name": "audit",
         "input.type": "log",
         "log.offset": 96317,
