@@ -2,13 +2,9 @@
 
 type: o365audit
 {{ if .application_id }}application_id: {{ .application_id }}{{ end }}
-{{ if eq "string" (printf "%T" .tenant_id) }}
-tenant_id: {{ .tenant_id }}
-{{ else }}
 tenant_id:
-{{ range .tenant_id }}
- - {{ . }}
-{{ end }}
+{{ range .tenants }}
+ - {{ .id }}
 {{ end }}
 {{ if .certificate }}certificate: {{ .certificate }}{{ end }}
 {{ if .key }}key: {{ .key }}{{ end }}
@@ -58,3 +54,9 @@ processors:
       file: ${path.home}/module/o365/audit/config/pipeline.js
       params:
         debug: false
+        tenants:
+          {{ range .tenants }}
+          - id: "{{ .id }}"
+            name: "{{ .name }}"
+          {{ end }}
+

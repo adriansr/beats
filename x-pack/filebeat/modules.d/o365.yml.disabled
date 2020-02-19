@@ -8,12 +8,16 @@
     # Set the application_id (also known as client ID):
     var.application_id: "<MyApplicationID>"
 
-    # Set the tenant_id (also known as directory ID).
-    # For multitenant setups, this field can be a list:
-    # var.tenant_id:
-    #  - "tenant_id_1"
-    #  - "tenant_id_2"
-    var.tenant_id: "<MyTenantID>"
+    # Set the tenant IDs (also known as directory ID).
+    # and also the domain name.
+    # var.tenants:
+    #  - id: "tenant_id_1"
+    #    name: "mydomain.onmicrosoft.com"
+    #  - id: "tenant_id_2"
+    #    name: "mycompany.com"
+    var.tenants:
+     - id: "<MyTenantID>"
+       name: "mytenant.onmicrosoft.com"
 
     # List of content-types to fetch. By default all known content-types
     # are retrieved:

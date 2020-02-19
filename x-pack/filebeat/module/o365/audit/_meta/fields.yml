@@ -9,30 +9,52 @@
       fields:
       - name: ID
         type: keyword
-        #example: u'755e500a-6c03-46b0-b53b-282f23374e3b'
+
       - name: Type
         type: keyword
-        #example: 0
+
     - name: ActorContextId
       type: keyword
-      #example: u'b86ab9d4-fcf1-4b11-8a06-7a8f91b47fbd'
+
     - name: ActorIpAddress
       type: keyword
-      #example: u'79.159.10.151'
+    - name: ActorUserId
+    - name: ActorYammerUserId
+    - name: AlertEntityId
+      type: keyword
+
+    - name: AlertId
+      type: keyword
+
+    - name: AlertLinks
+      type: array
+
+    - name: AlertType
+      type: keyword
+
     - name: AppId
       type: keyword
       #example: u''
+    - name: ApplicationDisplayName
     - name: ApplicationId
       type: keyword
       #example: u'89bee1f7-5e6e-4d8a-9f3d-ecd601259da7'
     - name: AzureActiveDirectoryEventType
       type: keyword
-      #example: 1
+    - name: ExchangeMetaData.*
+      type: object
+    - name: Category
+      type: keyword
     - name: ClientAppId
       type: keyword
       #example: u''
+    - name: ClientInfoString
     - name: ClientIP
       type: keyword
+    - name: ClientIPAddress
+    - name: Comments
+      type: text
+      norms: false
       #example: u'79.159.10.151'
     - name: CorrelationId
       type: keyword
@@ -42,33 +64,47 @@
       #example: u'2020-02-12T21:38:37'
     - name: CustomUniqueId
       type: keyword
-      #example: True
+
+    - name: Data
+      type: keyword
+
     - name: DataType
       type: keyword
-      #example: u'DataInsightsSubscription'
+
+    - name: EntityType
+      type: keyword
+    - name: EventData
     - name: EventSource
       type: keyword
-      #example: u'SharePoint'
+    - name: ExceptionInfo.*
+      type: object
     - name: ExtendedProperties.*
       type: object
     - name: ExternalAccess
       type: keyword
-      #example: True
+    - name: GroupName
     - name: Id
       type: keyword
       #example: u'30c7afcc-f74d-4b5a-898e-ce72da9386b8'
     - name: ImplicitShare
       type: keyword
       #example: u'No'
+    - name: IncidentId
+      type: keyword
+    - name: InternalLogonType
     - name: InterSystemsId
       type: keyword
       #example: u'a35e980b-88be-4343-9691-629473e01983'
     - name: IntraSystemId
       type: keyword
       #example: u'78a2aa65-5026-4124-970a-00e06dc7df00'
+    - name: Item.*
+      type: object
+    - name: Item.*.*
+      type: object
+    - name: ItemName
     - name: ItemType
       type: keyword
-      #example: u'File'
     - name: ListId
       type: keyword
       #example: u'2b6ad2bd-0fd7-4556-9c89-a97847085b85'
@@ -77,8 +113,20 @@
       #example: u'7f06ab3a-bd98-41d3-a0b2-ad270d71e4d8'
     - name: LogonError
       type: keyword
+    - name: LogonType
+    - name: LogonUserSid
+    - name: MailboxGuid
+    - name: MailboxOwnerMasterAccountSid
+    - name: MailboxOwnerSid
+    - name: MailboxOwnerUPN
+    - name: Members
+      type: array
+    - name: Members.*
+      type: object
     - name: ModifiedProperties.*.*
       type: object
+    - name: Name
+      type: keyword
     - name: ObjectId
       type: keyword
       #example: u'5f09333a-842c-47da-a157-57da27fcbca5'
@@ -96,61 +144,69 @@
       #example: u'HE1PR0102MB3228 (15.20.2729.017)'
     - name: Parameters.*
       type: object
+    - name: PolicyDetails
+      type: array
+    - name: PolicyId
+      type: keyword
     - name: RecordType
       type: keyword
       #example: 15
     - name: ResultStatus
       type: keyword
-      #example: u'Succeeded'
+    - name: SensitiveInfoDetectionIsIncluded
+      type: keyword
+    - name: SharePointMetaData.*
+      type: object
+    - name: SessionId
+    - name: Severity
+      type: keyword
+
     - name: Site
       type: keyword
       #example: u'd5180cfc-3479-44d6-b410-8c985ac894e3'
     - name: SiteUrl
       type: keyword
-      #example: u'https://testsiem-my.sharepoint.com/personal/asr_testsiem_onmicrosoft_com/'
+    - name: Source
+      type: keyword
     - name: SourceFileExtension
       type: keyword
-      #example: u'png'
     - name: SourceFileName
       type: keyword
-      #example: u'Screenshot.png'
     - name: SourceRelativeUrl
       type: keyword
-      #example: u'Documents'
+    - name: Status
+      type: keyword
     - name: SupportTicketId
       type: keyword
-      #example: u''
     - name: Target
       type: array
       fields:
       - name: ID
         type: keyword
-        #example: u'5f09333a-842c-47da-a157-57da27fcbca5'
       - name: Type
         type: keyword
-        #example: 0
     - name: TargetContextId
       type: keyword
-      #example: u'b86ab9d4-fcf1-4b11-8a06-7a8f91b47fbd'
+    - name: TargetUserOrGroupName
+    - name: TargetUserOrGroupType
+    - name: TeamName
+    - name: TeamGuid
+    - name: UniqueSharingId
     - name: UserAgent
       type: keyword
-      #example: u'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:72.0) Gecko/20100101 Firefox/72.0'
     - name: UserId
       type: keyword
-      #example: u'asr@testsiem.onmicrosoft.com'
     - name: UserKey
       type: keyword
-      #example: u'1003200096971F55@testsiem.onmicrosoft.com'
     - name: UserType
       type: keyword
-      #example: 0
     - name: Version
       type: keyword
       #example: 1
     - name: WebId
       type: keyword
-      #example: u'8c5c94bb-8396-470c-87d7-8999f440cd30'
+
     - name: Workload
-      type: keyword
-      #example: u'AzureActiveDirectory'
+    - name: YammerNetworkId
+
 

@@ -151,12 +151,14 @@ function azureADLogonSchema(debug) {
     builder.Add("setEventAuthFields", function(evt){
        evt.Put("event.category", "authentication");
        var outcome = evt.Get("event.outcome");
+       var types = ["start"];
        if (outcome != null && outcome !== "unknown") {
            // As event.type is an array, this sets both the traditional
            // "authentication_success"/"authentication_failure"
            // and the soon to be ECS standard "start".
-           evt.Put("event.type", ["authentication_" + outcome, "start"]);
+           types.push("authentication_" + outcome);
        }
+       evt.Put("event.type", types);
     });
     return builder.Build();
 }
@@ -221,11 +223,273 @@ function exchangeMailboxSchema(debug) {
     return builder.Build();
 }
 
+function dataLossPreventionSchema(debug) {
+    var builder = new PipelineBuilder("o365.audit.DLP", debug);
+    builder.Add("setEventKind", new processor.AddFields({
+        target: 'event',
+        fields: {
+            kind: 'alert',
+            category: 'file',
+            type: 'access',
+        },
+    }));
+    builder.Add("saveFields", new processor.Convert({
+        fields: [
+            // SharePoint metadata
+            {from: 'o365audit.SharePointMetaData.From', to: 'user.id'},
+            {from: 'o365audit.SharePointMetaData.FileName', to: 'file.name'},
+            {from: 'o365audit.SharePointMetaData.FilePathUrl', to: 'url.original'},
+            {from: 'o365audit.SharePointMetaData.UniqueId', to: 'file.inode'},
+            {from: 'o365audit.SharePointMetaData.UniqueID', to: 'file.inode'},
+            {from: 'o365audit.SharePointMetaData.FileOwner', to: 'file.owner'},
+
+            // Exchange metadata
+            {from: 'o365audit.ExchangeMetaData.From', to: 'source.user.email'},
+            {from: 'o365audit.ExchangeMetaData.Subject', to: 'message'},
+
+            // Policy details
+            {from: 'o365audit.PolicyId', to: 'rule.id'},
+            {from: 'o365audit.PolicyName', to: 'rule.name'},
+        ],
+        ignore_missing: true,
+        fail_on_error: false
+    }));
+    builder.Add("setMTime", new processor.Timestamp({
+        field: "o365audit.SharePointMetaData.LastModifiedTime",
+        target_field: "file.mtime",
+        layouts: [
+            "2006-01-02T15:04:05",
+            "2006-01-02T15:04:05Z",
+        ],
+        ignore_missing: true,
+        ignore_failure: true,
+    }));
+    builder.Add("appendDestinationEmails", function(evt) {
+       var list = [];
+       var fields = [
+           'o365audit.ExchangeMetaData.To',
+           'o365audit.ExchangeMetaData.CC',
+           'o365audit.ExchangeMetaData.BCC',
+       ];
+       for (var i=0; i<fields.length; i++) {
+           var value = evt.Get(fields[i]);
+           if (value == null) continue;
+           if (value instanceof Array) {
+               list = list.concat(value);
+           } else {
+               list.push(value);
+           }
+       }
+       if (list.length == 1) {
+           evt.Put("destination.user.email", list[0]);
+       } else if (list.length > 1) {
+           evt.Put("destination.user.email", list);
+       }
+    });
+    // ExceptionInfo is documented as string but has been observed to be an object.
+    builder.Add("fixExceptionInfo", function(evt) {
+        var key = "o365audit.ExceptionInfo";
+        var eInfo = evt.Get(key);
+        if (eInfo == null) return;
+        if (typeof eInfo === "string") {
+            if (eInfo === "") {
+                evt.Delete(key);
+            } else {
+                evt.Put(key, {
+                    Reason: eInfo,
+                });
+            }
+        }
+    });
+    builder.Add("extractRules", function(evt) {
+        var policies = evt.Get("o365audit.PolicyDetails");
+        if (policies == null) return;
+        var ruleIds = [];
+        var ruleNames = [];
+        var maxSeverity = -1;
+        var allowed = true;
+        for (var i = 0; i < policies.length; i++) {
+            var rules = policies[i].Rules;
+            if (rules == null) continue;
+            for (var j = 0; j < rules.length; j++) {
+                var rule = rules[j];
+                var id = rule.RuleId;
+                var name = rule.RuleName;
+                var sev = severityToCode(rule.Severity);
+                if (id != null && name != null) {
+                    ruleIds.push(id);
+                    ruleNames.push(name);
+                }
+                if (sev > maxSeverity) maxSeverity = sev;
+                if (allowed) {
+                    if (rule.Actions != null && rule.Actions.indexOf("BlockAccess") > -1) {
+                        allowed = false;
+                    }
+                }
+            }
+        }
+        if (ruleIds.length === 1) {
+            evt.Put("rule.id", ruleIds[0]);
+            evt.Put("rule.name", ruleNames[0]);
+        } else if (ruleIds.length > 0) {
+            evt.Put("rule.id", ruleIds);
+            evt.Put("rule.name", ruleNames);
+        }
+        if (maxSeverity > -1) {
+            evt.Put("event.severity", maxSeverity);
+        }
+        if (allowed) {
+            evt.Put("event.outcome", "success");
+        } else {
+            evt.Put("event.outcome", isBlockOverride(evt)? "success" : "failure");
+        }
+    });
+    return builder.Build();
+}
+
+function severityToCode(str) {
+    if (str == null) return -1;
+    switch (str.toLowerCase()) {
+        case '': return -1;
+        case 'informational': return 1;
+        case 'low': return 2;
+        case 'medium': return 3;
+        case 'high': return 4;
+        default: return 5;
+    }
+}
+
+function isBlockOverride(evt) {
+    switch (evt.Get("o365audit.Operation")) {
+        // Undo means the block was undone via change of policy or override.
+        case "DlpRuleUndo":
+        case "DLPRuleUndo": return true;
+        // Info means it was detected as a false positive but no action taken.
+        case "DlpInfo":
+        case "DLPInfo": return false;
+    }
+    // It's not clear to me the format of ExceptionInfo. It could be an object
+    // or a string containing a JSON object. Assume that if present, an exception
+    // is made.
+    var exInfo = evt.Get('o365audit.ExceptionInfo');
+    return exInfo != null && exInfo !== "";
+}
+
+function yammerSchema(debug) {
+    var builder = new PipelineBuilder("o365.audit.Yammer", debug);
+    builder.Add("saveFields", new processor.Convert({
+        fields: [
+            {from: 'o365audit.ActorUserId', to: 'user.email'},
+            {from: 'o365audit.ActorYammerUserId', to: 'user.id'},
+            {from: 'o365audit.FileId', to:'file.inode'},
+            {from: 'o365audit.FileName', to: 'file.name'},
+            {from: 'o365audit.GroupName', to: 'group.name'},
+            {from: 'o365audit.TargetUserId', to: 'destination.user.email'},
+            {from: 'o365audit.TargetYammerUserId', to: 'destination.user.id'},
+        ],
+        ignore_missing: true,
+        fail_on_error: false
+    }));
+    builder.Add("setEventFields", new processor.AddFields({
+        target: 'event',
+        fields: {
+            category: 'file',
+        },
+        'when.equals.o365audit.DataExportTime': 'data',
+    }));
+    return builder.Build();
+}
+
+function securityComplianceAlertsSchema(debug) {
+    var builder = new PipelineBuilder("o365.audit.SecurityComplianceAlerts", debug);
+    builder.Add("saveFields", new processor.Convert({
+        fields: [
+            {from: 'o365audit.Comments', to: 'message'},
+            {from: 'o365audit.Name', to: 'rule.name'},
+            {from: 'o365audit.PolicyId', to: 'rule.id'},
+            {from: 'o365audit.Category', to: 'rule.category'},
+            {from: 'o365audit.EntityType', to: 'rule.ruleset'},
+            // This contains the entity that triggered the alert.
+            // Name of a malware or email address.
+            // Need to find a better ECS field for it.
+            {from: 'o365audit.AlertEntityId', to: 'rule.description'},
+            {from: 'o365audit.AlertLinks', to: 'rule.reference'},
+        ],
+        ignore_missing: true,
+        fail_on_error: false
+    }));
+    builder.Add("setEventKind", new processor.AddFields({
+        target: 'event',
+        fields: {
+            kind: 'alert',
+            category: 'web',
+            type: 'info',
+        },
+    }));
+    // event.severity is numeric.
+    builder.Add("mapSeverity", function(evt) {
+       var sev = severityToCode(evt.Get("o365audit.Severity"));
+       if (sev >= 0) {
+           evt.Put("event.severity", sev);
+       }
+    });
+    builder.Add("mapCategory", makeMapper({
+        from: 'o365audit.Category',
+        to: 'event.category',
+        default: 'authentication',
+        lowercase: true,
+        mappings: {
+            'accessgovernance': 'authentication',
+            'datagovernance': 'file',
+            'datalossprevention': 'file',
+            'threatmanagement': 'malware',
+        },
+    }));
+    builder.Add("saveEntity", makeConditional({
+        condition: function(evt) {
+            return evt.Get("o365audit.EntityType");
+        },
+        'User': new processor.Convert({
+            fields: [
+                {from: "o365audit.AlertEntityId", to: "user.id"},
+            ],
+            ignore_missing: true,
+            fail_on_error: false
+        }),
+        'Recipients': new processor.Convert({
+            fields: [
+                {from: "o365audit.AlertEntityId", to: "user.email"},
+            ],
+            ignore_missing: true,
+            fail_on_error: false
+        }),
+        'Sender': new processor.Convert({
+            fields: [
+                {from: "o365audit.AlertEntityId", to: "user.email"},
+            ],
+            ignore_missing: true,
+            fail_on_error: false
+        }),
+        'MalwareFamily': new processor.Convert({
+            fields: [
+                {from: "o365audit.AlertEntityId", to: "threat.technique.id"},
+            ],
+            ignore_missing: true,
+            fail_on_error: false
+        }),
+    }));
+    return builder.Build();
+}
+
 function AuditProcessor(debug) {
     var builder = new PipelineBuilder("o365.audit", debug);
 
     builder.Add("cleanupNulls", function(event) {
-        ["o365audit.ClientIP"].forEach(function(field) {
+        [
+            "o365audit.ClientIP",
+            "o365audit.ClientIPAddress",
+            "o365audit.ActorIpAddress"
+        ].forEach(function(field) {
             var value = event.Get(field);
             if (value === "null" || value === "<null>") {
                 event.Delete(field);
@@ -236,6 +500,8 @@ function AuditProcessor(debug) {
         fields: [
             {from: "o365audit.Id", to: "event.id"},
             {from: "o365audit.ClientIP", to: "client.address"},
+            {from: "o365audit.ClientIPAddress", to: "client.address"},
+            {from: "o365audit.ActorIpAddress", to: "client.address"},
             {from: "o365audit.UserKey", to: "user.hash"},
             {from: "o365audit.UserId", to: "user.id"},
             {from: "o365audit.Workload", to: "event.provider"},
@@ -244,7 +510,6 @@ function AuditProcessor(debug) {
             // Extra common fields:
             {from: "o365audit.UserAgent", to: "user_agent.original"},
         ],
-        // TODO: should? // mode: "rename",
         ignore_missing: true,
         fail_on_error: false
     }));
@@ -299,12 +564,20 @@ function AuditProcessor(debug) {
             66: 'MicrosoftForms', // Microsoft Forms events.
         },
     }));
+    builder.Add("setEventFields", new processor.AddFields({
+        target: 'event',
+        fields: {
+            kind: 'event',
+            type: 'info',
+            // Not so sure about web as a default category:
+            category: 'web',
+        },
+    }));
     builder.Add("mapEventOutcome", makeMapper({
         from: 'o365audit.ResultStatus',
         to: 'event.outcome',
         lowercase: true,
-        default: 'unknown',
-        skip_missing: true,
+        default: 'success',
         mappings: {
             'success': 'success', // This one is necessary to map Success
             'succeeded': 'success',
@@ -313,18 +586,6 @@ function AuditProcessor(debug) {
             'failed': 'failure',
             'false': 'failure',
         },
-    }));
-    builder.Add("setEventKind", new processor.AddFields({
-        target: 'event',
-        fields: {
-            kind: 'event',
-        },
-    }));
-    builder.Add("setUserFieldsFromId", new processor.Dissect({
-        tokenizer: "%{name}@%{domain}",
-        field: "user.id",
-        target_prefix: "user",
-        'when.contains.user.id': '@',
     }));
     builder.Add("makeParametersDict", makeDictFromKVArray({
         from: 'o365audit.Parameters',
@@ -338,51 +599,108 @@ function AuditProcessor(debug) {
         from: 'o365audit.ModifiedProperties',
         to: 'o365audit.ModifiedProperties',
     }));
-
+    // Turn AlertLinks into an (optional array of) keyword instead of array
+    // of objects.
+    builder.Add("alertLinks", function (evt) {
+        var list = evt.Get("o365audit.AlertLinks");
+        if (list == null || !(list instanceof Array)) return;
+        var links = [];
+        for (var i=0; i<list.length; i++) {
+            var link = list[i].AlertLinkHref;
+            if (link != null && typeof link === "string" && link.length > 0) {
+                links.push(link);
+            }
+        }
+        switch (links.length) {
+            case 0:
+                evt.Delete('o365audit.AlertLinks');
+                break;
+            case 1:
+                evt.Put("o365audit.AlertLinks", links[0]);
+                break;
+            default:
+                evt.Put("o365audit.AlertLinks", links);
+        }
+    });
     // Populate event specific fields.
+    var dlp = dataLossPreventionSchema(debug);
     builder.Add("productSpecific", makeConditional({
-     condition: function(event) {
-         return event.Get("event.code");
-     },
-     'ExchangeAdmin': exchangeAdminSchema(debug).Run,
-     'ExchangeItem': exchangeMailboxSchema(debug).Run,
-     'AzureActiveDirectoryStsLogon': azureADLogonSchema(debug).Run,
-     'SharePointFileOperation': sharePointFileOperationSchema(debug).Run,
+        condition: function(event) {
+            return event.Get("event.code");
+        },
+        'ExchangeAdmin': exchangeAdminSchema(debug).Run,
+        'ExchangeItem': exchangeMailboxSchema(debug).Run,
+        'AzureActiveDirectoryStsLogon': azureADLogonSchema(debug).Run,
+        'SharePointFileOperation': sharePointFileOperationSchema(debug).Run,
+        'SecurityComplianceAlerts': securityComplianceAlertsSchema(debug).Run,
+        'ComplianceDLPSharePoint': dlp.Run,
+        'ComplianceDLPExchange': dlp.Run,
+        'Yammer': yammerSchema(debug).Run,
     }));
 
-    // Copy the source/destination.address to source/destination.ip if they are
-    // valid IP addresses.
-    builder.Add("copyAddressFields", new processor.Convert({
+    // Copy the client/server.address to ip fields if they are valid IP addresses.
+    builder.Add("copyClientServerFields", new processor.Convert({
         fields: [
-            {from: "source.address", to: "source.ip", type: "ip"},
-            {from: "destination.address", to: "destination.ip", type: "ip"},
             {from: "client.address", to: "client.ip", type: "ip"},
             {from: "server.address", to: "server.ip", type: "ip"},
         ],
         ignore_missing: true,
         fail_on_error: false
     }));
-
+    builder.Add("copySrcDstFields", new processor.Convert({
+        fields: [
+            {from: "client.ip", to: "source.ip"},
+            {from: "server.ip", to: "destination.ip"},
+        ],
+        ignore_missing: true,
+        fail_on_error: false
+    }));
+    builder.Add("setUserFieldsFromId", new processor.Dissect({
+        tokenizer: "%{name}@%{domain}",
+        field: "user.id",
+        target_prefix: "user",
+        'when.contains.user.id': '@',
+    }));
     builder.Add("setNetworkType", function(event) {
         var ip = event.Get("client.ip");
-        if (!ip) {
-            return;
-        }
-
-        if (ip.indexOf(".") !== -1) {
-            event.Put("network.type", "ipv4");
-        } else {
-            event.Put("network.type", "ipv6");
-        }
+        if (ip == null) return;
+        event.Put("network.type", ip.indexOf(".") !== -1? "ipv4" : "ipv6");
     });
 
     builder.Add("setRelatedIP", function(event) {
-        ["source.ip", "destination.ip"].forEach(function(field) {
+        ["client.ip", "server.ip"].forEach(function(field) {
             var val = event.Get(field);
             if (val) {
                 event.AppendTo("related.ip", val);
             }
-        })
+        });
+    });
+
+    // Set user-agent
+    builder.Add("altUserAgent", function(evt) {
+        var ext = evt.Get("o365audit.ExtendedProperties.UserAgent");
+        if (ext != null) evt.Put("user_agent.original", ext);
+    });
+
+    // Set host.name to the O365 tenant. This is necessary to aggregate events
+    // in SIEM app based on the tenant instead of the host where Filebeat is
+    // running.
+    builder.Add("setHostName", function(evt) {
+        var value;
+        if ((value=evt.Get("organization.id"))!=null) {
+            value = value.toLowerCase();
+            evt.Put("host.id", value);
+            // Use tenant name provided in the configuration.
+            if (value in tenant_names && value !== "") {
+                evt.Put("organization.name", value);
+                evt.Put("host.name", tenant_names[value]);
+                return;
+            }
+        }
+        if ((value=evt.Get("organization.name"))!=null ||
+            (value=evt.Get("user.domain")) != null ) {
+            evt.Put("host.name", value);
+        }
     });
 
     var chain = builder.Build();
@@ -393,9 +711,15 @@ function AuditProcessor(debug) {
 
 
 var audit;
+var tenant_names = {};
 
 // Register params from configuration.
 function register(params) {
+    if (params.tenants != null) {
+        for (var i = 0; i < params.tenants.length; i++) {
+            tenant_names[params.tenants[i].id] = params.tenants[i].name.toLowerCase();
+        }
+    }
     audit = new AuditProcessor(params.debug);
 }
 
