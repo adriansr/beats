@@ -1,4 +1,4 @@
-  - name: o365audit
+  - name: o365.audit
     type: group
     default_field: false
     description: >

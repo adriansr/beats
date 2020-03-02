@@ -618,8 +618,8 @@ filebeat.modules:
     # Set the application_id (also known as client ID):
     var.application_id: "<MyApplicationID>"
 
-    # Set the tenant IDs (also known as directory ID).
-    # and also the domain name.
+    # Configure the tenants to monitor:
+    # Use the tenant ID (also known as directory ID) and the domain name.
     # var.tenants:
     #  - id: "tenant_id_1"
     #    name: "mydomain.onmicrosoft.com"
@@ -655,7 +655,7 @@ filebeat.modules:
     #
     #   max_retention: 7d
     #   max_requests_per_minute: 2000
-
+    #   poll_interval: 3m
 
 #------------------------------- Osquery Module -------------------------------
 - module: osquery

@@ -702,7 +702,12 @@ function AuditProcessor(debug) {
             evt.Put("host.name", value);
         }
     });
-
+    builder.Add("saveRaw", new processor.Convert({
+        fields: [
+            {from: "o365audit", to: "o365.audit"},
+        ],
+        mode: "rename"
+    }));
     var chain = builder.Build();
     return {
         process: chain.Run
