@@ -4,6 +4,7 @@ package cef
 import (
     "fmt"
     "strconv"
+    "strings"
 
     "go.uber.org/multierr"
 )
@@ -17,6 +18,9 @@ import (
 
 // unpack unpacks a CEF message.
 func (e *Event) unpack(data string) error {
+    const ws = " \r\n\t\v\f"
+    data = strings.TrimRight(data, ws)
+
     cs, p, pe, eof := 0, 0, len(data), len(data)
     mark := 0
 
