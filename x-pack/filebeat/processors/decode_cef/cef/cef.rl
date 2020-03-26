@@ -17,6 +17,8 @@ import (
 
 // unpack unpacks a CEF message.
 func (e *Event) unpack(data string) error {
+    data = trimTrailingSpace(data)
+
     cs, p, pe, eof := 0, 0, len(data), len(data)
     mark := 0
 

@@ -35,6 +35,8 @@ const cef_en_main_cef_extensions int = 24
 
 // unpack unpacks a CEF message.
 func (e *Event) unpack(data string) error {
+	data = trimTrailingSpace(data)
+
 	cs, p, pe, eof := 0, 0, len(data), len(data)
 	mark := 0
 
@@ -50,12 +52,12 @@ func (e *Event) unpack(data string) error {
 
 	e.init(data)
 
-//line parser.go:55
+//line parser.go:57
 	{
 		cs = cef_start
 	}
 
-//line parser.go:60
+//line parser.go:62
 	{
 		if (p) == (pe) {
 			goto _test_eof
@@ -752,55 +754,55 @@ func (e *Event) unpack(data string) error {
 		goto f17
 
 	f0:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
 		goto _again
 	f1:
-//line cef.rl:40
+//line cef.rl:42
 
 		e.Version, _ = strconv.Atoi(data[mark:p])
 
 		goto _again
 	f3:
-//line cef.rl:43
+//line cef.rl:45
 
 		e.DeviceVendor = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f5:
-//line cef.rl:46
+//line cef.rl:48
 
 		e.DeviceProduct = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f7:
-//line cef.rl:49
+//line cef.rl:51
 
 		e.DeviceVersion = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f9:
-//line cef.rl:52
+//line cef.rl:54
 
 		e.DeviceEventClassID = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f11:
-//line cef.rl:55
+//line cef.rl:57
 
 		e.Name = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f13:
-//line cef.rl:58
+//line cef.rl:60
 
 		e.Severity = data[mark:p]
 
 		goto _again
 	f14:
-//line cef.rl:61
+//line cef.rl:63
 
 		// A new extension key marks the end of the last extension value.
 		if len(extKey) > 0 && extValueStart <= mark-1 {
@@ -811,120 +813,124 @@ func (e *Event) unpack(data string) error {
 
 		goto _again
 	f20:
-//line cef.rl:69
+//line cef.rl:71
 
 		extValueStart = p
 		extValueEnd = p
 
 		goto _again
 	f16:
-//line cef.rl:73
+//line cef.rl:75
 
 		extValueEnd = p + 1
 
 		goto _again
 	f15:
-//line cef.rl:83
+//line cef.rl:85
 
 		recoveredErrs = append(recoveredErrs, fmt.Errorf("malformed value for %s at pos %d", extKey, p+1))
 		(p)--
 		cs = 28
 		goto _again
+
+		goto _again
 	f17:
-//line cef.rl:87
+//line cef.rl:89
 
 		extKey, extValueStart, extValueEnd = "", 0, 0
 		// Resume processing at p, the start of the next extension key.
 		p = mark
 		cs = 24
 		goto _again
+
+		goto _again
 	f2:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:43
+//line cef.rl:45
 
 		e.DeviceVendor = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f4:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:46
+//line cef.rl:48
 
 		e.DeviceProduct = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f6:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:49
+//line cef.rl:51
 
 		e.DeviceVersion = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f8:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:52
+//line cef.rl:54
 
 		e.DeviceEventClassID = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f10:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:55
+//line cef.rl:57
 
 		e.Name = replaceHeaderEscapes(data[mark:p])
 
 		goto _again
 	f12:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:58
+//line cef.rl:60
 
 		e.Severity = data[mark:p]
 
 		goto _again
 	f23:
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
-//line cef.rl:73
+//line cef.rl:75
 
 		extValueEnd = p + 1
 
 		goto _again
 	f19:
-//line cef.rl:69
+//line cef.rl:71
 
 		extValueStart = p
 		extValueEnd = p
 
-//line cef.rl:73
+//line cef.rl:75
 
 		extValueEnd = p + 1
 
 		goto _again
 	f22:
-//line cef.rl:73
+//line cef.rl:75
 
 		extValueEnd = p + 1
 
-//line cef.rl:37
+//line cef.rl:39
 
 		mark = p
 
@@ -943,7 +949,7 @@ func (e *Event) unpack(data string) error {
 		if (p) == eof {
 			switch _cef_eof_actions[cs] {
 			case 22:
-//line cef.rl:76
+//line cef.rl:78
 
 				// Reaching the EOF marks the end of the final extension value.
 				if len(extKey) > 0 && extValueStart <= extValueEnd {
@@ -952,7 +958,7 @@ func (e *Event) unpack(data string) error {
 				}
 
 			case 16:
-//line cef.rl:83
+//line cef.rl:85
 
 				recoveredErrs = append(recoveredErrs, fmt.Errorf("malformed value for %s at pos %d", extKey, p+1))
 				(p)--
@@ -960,12 +966,12 @@ func (e *Event) unpack(data string) error {
 				goto _again
 
 			case 19:
-//line cef.rl:69
+//line cef.rl:71
 
 				extValueStart = p
 				extValueEnd = p
 
-//line cef.rl:76
+//line cef.rl:78
 
 				// Reaching the EOF marks the end of the final extension value.
 				if len(extKey) > 0 && extValueStart <= extValueEnd {
@@ -973,7 +979,7 @@ func (e *Event) unpack(data string) error {
 					extKey, extValueStart, extValueEnd = "", 0, 0
 				}
 
-//line parser.go:847
+//line parser.go:849
 			}
 		}
 
@@ -982,7 +988,7 @@ func (e *Event) unpack(data string) error {
 		}
 	}
 
-//line cef.rl:145
+//line cef.rl:147
 
 	// Check if state machine completed.
 	if cs < cef_first_final {
