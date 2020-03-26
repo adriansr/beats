@@ -3,6 +3,7 @@ package cef
 
 import (
     "fmt"
+    "strings"
     "strconv"
 
     "go.uber.org/multierr"
@@ -17,6 +18,11 @@ import (
 
 // unpack unpacks a CEF message.
 func (e *Event) unpack(data string) error {
+    const ws = " \r\n\t\v\f"
+    last := len(data)
+    for ;last > 0 && strings.IndexByte(ws, data[last-1]) != -1; last-- {}
+    data = data[:last]
+
     cs, p, pe, eof := 0, 0, len(data), len(data)
     mark := 0
 
