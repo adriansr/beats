@@ -10,6 +10,9 @@ import (
 
 	// Register Auditbeat x-pack modules.
 	_ "github.com/elastic/beats/v7/x-pack/auditbeat/include"
+
+	// Register auditd syscall monitoring
+	_ "github.com/elastic/beats/v7/x-pack/auditbeat/module/auditd/monitoring"
 )
 
 // RootCmd to handle beats CLI.
