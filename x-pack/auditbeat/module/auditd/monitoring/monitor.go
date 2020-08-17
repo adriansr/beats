@@ -1,9 +1,11 @@
+// +build amd64,linux
+
 package monitoring
 
 import (
-	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/elastic/go-libaudit/v2/auparse"
@@ -26,38 +28,15 @@ func init() {
 }
 
 type Monitor struct {
+	sync.Mutex
 	traceFS  *tracing.TraceFS
 	channel  *tracing.PerfChannel
 	log      *logp.Logger
 	close    chan struct{}
 	wg       sync.WaitGroup
 	syscalls map[int]string
-	stats    map[key]*counters
-}
-
-type key struct {
-	sysNo int
-	exit  bool
-}
-
-type counters struct {
-	key
-	calls uint64
-	time  uint64
-}
-
-func (ct counters) PerCall() time.Duration {
-	return time.Duration(ct.time) / time.Duration(ct.calls)
-}
-
-func (ct counters) Print(syscalls map[int]string) string {
-	dir := "exit"
-	if !ct.exit {
-		dir = "entry"
-	}
-	abs := time.Duration(ct.time)
-	return fmt.Sprintf("%s:%s calls:%d totalT:%s relT:%s",
-		syscalls[ct.sysNo], dir, ct.calls, abs, abs/time.Duration(ct.calls))
+	//stats    map[int]*auditd.Counter
+	stats auditd.Stats
 }
 
 func New() auditd.Monitor {
@@ -65,7 +44,11 @@ func New() auditd.Monitor {
 		log:      logp.NewLogger(logSelector),
 		close:    make(chan struct{}, 1),
 		syscalls: auparse.AuditSyscalls["x86_64"],
-		stats:    make(map[key]*counters),
+		stats: auditd.Stats{
+			Counters: make(map[int]*auditd.Counter),
+			Calls:    0,
+			Lost:     0,
+		},
 	}
 }
 
@@ -97,8 +80,8 @@ func (m *Monitor) Stop() error {
 }
 
 func (m *Monitor) print() {
-	st := make([]*counters, 0, len(m.stats))
-	for _, v := range m.stats {
+	st := make([]*auditd.Counter, 0, len(m.stats.Counters))
+	for _, v := range m.stats.Counters {
 		st = append(st, v)
 	}
 	m.log.Infof("Per-call overhead (%d syscalls)", len(st))
@@ -193,6 +176,7 @@ func (m *Monitor) mainLoop() (err error) {
 		case <-m.close:
 			return nil
 		case event := <-m.channel.C():
+			atomic.AddUint64(&m.stats.Calls, 1)
 			switch v := event.(type) {
 			case *auditEntryEvent:
 				st := statePool.Get().(*threadState)
@@ -218,33 +202,31 @@ func (m *Monitor) mainLoop() (err error) {
 
 			case *auditExitRetEvent:
 				if st := threads[v.Meta.TID]; st != nil {
-					if st.check == 7 {
-						st.exit.end = v.Meta.Timestamp
-						k := key{
-							sysNo: st.syscall,
-							exit:  false,
-						}
-						if ct, ok := m.stats[k]; ok {
-							ct.calls++
-							ct.time += st.entry.end - st.entry.start
+					st.exit.end = v.Meta.Timestamp
+					if st.check == 7 &&
+						st.entry.start <= st.entry.end &&
+						st.exit.start <= st.exit.end &&
+						st.entry.end <= st.exit.start {
+
+						timeIn := (st.entry.end - st.entry.start) + (st.exit.end - st.exit.start)
+						timeOut := st.exit.end - st.entry.start
+
+						m.Lock()
+						if ct, ok := m.stats.Counters[st.syscall]; ok {
+							// Update
+							ct.NumCalls++
+							ct.TimeIn += timeIn
+							ct.TimeOut += timeOut
 						} else {
-							m.stats[k] = &counters{
-								key:   k,
-								calls: 1,
-								time:  st.entry.end - st.entry.start,
+							// Create
+							m.stats.Counters[st.syscall] = &auditd.Counter{
+								SysNo:    st.syscall,
+								NumCalls: 1,
+								TimeIn:   timeIn,
+								TimeOut:  timeOut,
 							}
 						}
-						k.exit = true
-						if ct, ok := m.stats[k]; ok {
-							ct.calls++
-							ct.time += st.exit.end - st.exit.start
-						} else {
-							m.stats[k] = &counters{
-								key:   k,
-								calls: 1,
-								time:  st.exit.end - st.exit.start,
-							}
-						}
+						m.Unlock()
 					}
 					delete(threads, v.Meta.TID)
 					statePool.Put(st)
@@ -256,11 +238,29 @@ func (m *Monitor) mainLoop() (err error) {
 			}
 
 		case lost := <-m.channel.LostC():
+			atomic.AddUint64(&m.stats.Lost, lost)
 			m.log.Warnf("Lost %d events", lost)
 
 		case err := <-m.channel.ErrC():
 			m.log.Warnf("Error from perf channel: %v", err)
 			return err
 		}
+	}
+}
+
+func (m *Monitor) Stats() auditd.Stats {
+	m.Lock()
+	copy := make(map[int]*auditd.Counter, len(m.stats.Counters))
+	calls := atomic.LoadUint64(&m.stats.Calls)
+	lost := atomic.LoadUint64(&m.stats.Lost)
+	for k, v := range m.stats.Counters {
+		entry := *v
+		copy[k] = &entry
+	}
+	m.Unlock()
+	return auditd.Stats{
+		Counters: copy,
+		Calls:    calls,
+		Lost:     lost,
 	}
 }

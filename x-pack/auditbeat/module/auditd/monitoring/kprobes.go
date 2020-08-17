@@ -1,3 +1,5 @@
+// +build amd64,linux
+
 package monitoring
 
 import (

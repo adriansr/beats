@@ -181,7 +181,7 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 		}()
 	}
 
-	monitor := SyscallMonitor.Get()
+	/*monitor := SyscallMonitor.Get()
 	if monitor != nil {
 		ms.log.Info("Starting syscall monitor ...")
 		if err = monitor.Start(); err == nil {
@@ -194,7 +194,7 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 		} else {
 			ms.log.Errorf("Failed to start syscall monitor: %v", err)
 		}
-	}
+	}*/
 
 	// Spawn the stream buffer consumers
 	numConsumers := ms.config.StreamBufferConsumers
