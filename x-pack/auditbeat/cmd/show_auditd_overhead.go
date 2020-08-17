@@ -264,8 +264,8 @@ func display(stats auditd.Stats) error {
 		table[idx] = []string{
 			name,
 			fmt.Sprintf(" %d", ct.NumCalls),
-			fmt.Sprintf(" %s", time.Duration(ct.TimeIn)),
 			fmt.Sprintf(" %s", time.Duration(ct.TimeOut)),
+			fmt.Sprintf(" %s", time.Duration(ct.TimeIn)),
 			fmt.Sprintf(" %s", sorter.format(value)),
 		}
 		for j, str := range table[idx] {
