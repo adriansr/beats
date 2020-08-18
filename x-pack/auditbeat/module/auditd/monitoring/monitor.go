@@ -240,6 +240,8 @@ func (m *Monitor) mainLoop() (err error) {
 		case lost := <-m.channel.LostC():
 			atomic.AddUint64(&m.stats.Lost, lost)
 			m.log.Warnf("Lost %d events", lost)
+			// Get rid of known state
+			threads = make(map[uint32]*threadState, len(threads))
 
 		case err := <-m.channel.ErrC():
 			m.log.Warnf("Error from perf channel: %v", err)
