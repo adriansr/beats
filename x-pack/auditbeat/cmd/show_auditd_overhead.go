@@ -383,6 +383,11 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 		remain -= w
 	}
 	t.Fill(remain).CRLF()
+	graphSize := remain - 1
+	const maxGraphSize = 50
+	if graphSize > maxGraphSize {
+		graphSize = maxGraphSize
+	}
 	t.SetColor(Default)
 	for idx, row := range table {
 		for col, w := range widths {
@@ -394,7 +399,7 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 		} else {
 			t.SetColor(Green.bg())
 		}
-		t.Fill(int(float64(remain-1) * sorter.value(counters[idx]) / maxVal))
+		t.Fill(int(float64(graphSize) * sorter.value(counters[idx]) / maxVal))
 		t.SetColor(Default).CRLF()
 	}
 	if excess > 0 {
