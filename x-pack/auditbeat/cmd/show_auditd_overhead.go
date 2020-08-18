@@ -123,10 +123,16 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 	// Leave alternate screen on termination
 	defer fmt.Print("\033[?1049l")
 
-	timerC := time.Tick(time.Second)
+	timerC := time.Tick(2 * time.Second)
 	paused := false
+	forceUpdate := false
 	for {
-		forceUpdate := false
+		if !paused || forceUpdate {
+			if err := display(monitor.Stats()); err != nil {
+				panic(err)
+			}
+			forceUpdate = false
+		}
 		select {
 		case chr := <-inputC:
 			switch chr {
@@ -149,11 +155,6 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 			}
 
 		case <-timerC:
-		}
-		if !paused || forceUpdate {
-			if err := display(monitor.Stats()); err != nil {
-				panic(err)
-			}
 		}
 	}
 }
