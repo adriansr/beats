@@ -168,12 +168,25 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 	}
 }
 
-func clearTermBelowCursor() {
-	fmt.Print("\033[J")
+type termBuffer struct {
+	data []byte
 }
 
-func moveTo(row, col int) {
-	fmt.Printf("\033[%d;%dH", row, col)
+func (t *termBuffer) Print(msg string) *termBuffer {
+	t.data = append(t.data, []byte(msg)...)
+	return t
+}
+
+func (t *termBuffer) Printf(format string, args ...interface{}) *termBuffer {
+	return t.Print(fmt.Sprintf(format, args...))
+}
+
+func (t *termBuffer) ClearBelowCursor() *termBuffer {
+	return t.Print("\033[J")
+}
+
+func (t *termBuffer) MoveTo(row, col int) *termBuffer {
+	return t.Printf("\033[%d;%dH", row, col)
 }
 
 type Color byte
@@ -190,33 +203,44 @@ const (
 	White
 )
 
-func (c Color) fg() {
-	bright := ""
-	if c&0x80 != 0 {
-		bright = ";1"
-		c &= 0x7f
-	}
-	fmt.Printf("\033[%d%sm", c, bright)
-}
-
-func (c Color) bg() {
+func (c Color) bg() Color {
 	if c != Default {
 		c += 10
 	}
-	c.fg()
+	return c
 }
 
 func (c Color) bright() Color {
 	return c | 0x80
 }
 
-func fill(n int) {
+func (t *termBuffer) SetColor(c Color) *termBuffer {
+	bright := ""
+	if c&0x80 != 0 {
+		bright = ";1"
+		c &= 0x7f
+	}
+	return t.Printf("\033[%d%sm", c, bright)
+}
+
+func (t *termBuffer) Fill(n int) *termBuffer {
 	for ; n > len(spaces); n -= len(spaces) {
-		fmt.Print(spaces)
+		t.Print(spaces)
 	}
 	if n > 0 {
-		fmt.Print(spaces[:n])
+		t.Print(spaces[:n])
 	}
+	return t
+}
+
+func (t *termBuffer) CRLF() *termBuffer {
+	return t.Print("\r\n")
+}
+
+func (t *termBuffer) Write() *termBuffer {
+	fmt.Print(string(t.data))
+	t.data = t.data[:0]
+	return t
 }
 
 var columns = []string{
@@ -261,7 +285,7 @@ func display(stats auditd.Stats) error {
 	for idx, ct := range counters[:limit] {
 		name := syscallNames[ct.SysNo]
 		if name == "" {
-			fmt.Sprintf("???(%d)", ct.SysNo)
+			name = fmt.Sprintf("???(%d)", ct.SysNo)
 		}
 		value := sorter.value(ct)
 		if value > maxVal {
@@ -279,82 +303,57 @@ func display(stats auditd.Stats) error {
 				widths[j] = n
 			}
 		}
-		//fmt.Printf("[%s] (%s) calls:%d in:%s out:%s\r\n", syscallNames[ct.SysNo], sorter.format(sorter.value(ct)), ct.NumCalls, time.Duration(ct.TimeIn), time.Duration(ct.TimeOut))
 	}
 
+	var t termBuffer
 	// Clear the screen and move cursor to the top-left
-	moveTo(0, 0)
-	clearTermBelowCursor()
-	Black.bg()
-	Cyan.fg()
-	fmt.Print("Syscalls: ")
-	Cyan.bright().fg()
-	fmt.Printf("%10d", len(counters))
-	Default.fg()
-	Cyan.fg()
-	fmt.Print(" Trace events: ")
-	Cyan.bright().fg()
-	fmt.Printf("%10d", stats.Calls)
-	Default.fg()
-	Cyan.fg()
-	fmt.Print(" Lost: ")
-	Red.bright().fg()
-	fmt.Printf("%10d\r\n", stats.Lost)
-	//fmt.Printf("%d syscalls / %d events / %d lost\r\n", len(counters), stats.Calls, stats.Lost)
+	t.MoveTo(0, 0).ClearBelowCursor()
+	// Status line
+	t.SetColor(Black.bg()).SetColor(Cyan).Print("Syscalls: ")
+	t.SetColor(Cyan.bright()).Printf("%10d", len(counters))
+	t.SetColor(Default).SetColor(Cyan).Print(" Trace events: ")
+	t.SetColor(Cyan.bright()).Printf("%10d", stats.Calls)
+	t.SetColor(Default).SetColor(Cyan).Print(" Lost: ")
+	t.SetColor(Red.bright()).Printf("%10d\r\n", stats.Lost)
 
-	Black.fg()
-	White.bright().bg()
 	const sortBy = " Sorted by: "
-	fmt.Print(sortBy)
-	Yellow.fg()
-	Cyan.bright().bg()
-	fmt.Print(sorter.name)
-	fill(width - len(sorter.name) - len(sortBy))
-	fmt.Print("\r\n")
-	Black.bg()
+	t.SetColor(Black).SetColor(White.bright().bg()).Print(sortBy)
+	t.SetColor(Yellow).SetColor(Cyan.bright().bg()).Print(sorter.name)
+	t.Fill(width - len(sorter.name) - len(sortBy)).CRLF()
 
 	// Print table header
-	Default.fg()
-	Black.fg()
-	Blue.bg()
+	t.SetColor(Default).SetColor(Black).SetColor(Blue.bg())
 	remain := width
 	for idx, w := range widths {
-		fill(w - len(columns[idx]))
-		fmt.Print(columns[idx])
+		t.Fill(w - len(columns[idx])).Print(columns[idx])
 		remain -= w
 	}
-	fill(remain)
-	fmt.Print("\r\n")
-	Default.fg()
+	t.Fill(remain).CRLF()
+	t.SetColor(Default)
 	for idx, row := range table {
 		for col, w := range widths {
-			fill(w - utf8.RuneCountInString(row[col]))
-			fmt.Print(row[col])
+			t.Fill(w - utf8.RuneCountInString(row[col])).Print(row[col])
 		}
-		fmt.Print(" ")
+		t.Print(" ")
 		if idx&1 != 0 {
-			Green.bg()
+			t.SetColor(Green.bg())
 		} else {
-			Green.bg()
+			t.SetColor(Green.bg())
 		}
-		fill(int(float64(remain-1) * sorter.value(counters[idx]) / maxVal))
-		Default.bg()
-		fmt.Print("\r\n")
+		t.Fill(int(float64(remain-1) * sorter.value(counters[idx]) / maxVal))
+		t.SetColor(Default).CRLF()
 	}
 	if excess > 0 {
 		//fmt.Printf("[... and %d more ...]\r\n", excess)
 	}
-	moveTo(height, 0)
+	t.MoveTo(height, 0)
 	remain = width
 	for _, k := range keys {
-		Black.bright().bg()
-		fmt.Print(k[0])
-		Default.fg()
-		Blue.bg()
-		fmt.Print(k[1])
+		t.SetColor(Black.bright().bg()).Print(k[0])
+		t.SetColor(Default).SetColor(Blue.bg()).Print(k[1])
 		remain -= len(k[0]) + len(k[1])
 	}
-	fill(remain)
-	Default.fg()
+	t.Fill(remain)
+	t.SetColor(Default).Write()
 	return nil
 }
