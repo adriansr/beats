@@ -129,6 +129,12 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 			inputC <- chr[0]
 		}
 	}()
+
+	// Enter "alternate screen"
+	fmt.Print("\033[?1049h")
+	// Leave alternate screen on termination
+	defer fmt.Print("\033[?1049l")
+
 	timerC := time.Tick(time.Second)
 	paused := false
 	for {
@@ -162,8 +168,8 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 	}
 }
 
-func clearTerm() {
-	fmt.Print("\033[2J")
+func clearTermBelowCursor() {
+	fmt.Print("\033[J")
 }
 
 func moveTo(row, col int) {
@@ -277,8 +283,8 @@ func display(stats auditd.Stats) error {
 	}
 
 	// Clear the screen and move cursor to the top-left
-	clearTerm()
 	moveTo(0, 0)
+	clearTermBelowCursor()
 	Black.bg()
 	Cyan.fg()
 	fmt.Print("Syscalls: ")
