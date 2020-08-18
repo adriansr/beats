@@ -250,6 +250,8 @@ var keys = [][2]string{
 	{"[R]", "Reset stats "},
 }
 
+var widths []int
+
 func display(stats auditd.Stats) error {
 	width, height, err := terminal.GetSize(0)
 	if err != nil {
@@ -269,9 +271,11 @@ func display(stats auditd.Stats) error {
 		excess = len(counters) - limit
 	}
 	var table = make([][]string, limit)
-	var widths = make([]int, len(columns))
-	for idx, col := range columns {
-		widths[idx] = len(col)
+	if widths == nil {
+		widths = make([]int, len(columns))
+		for idx, col := range columns {
+			widths[idx] = len(col)
+		}
 	}
 	var maxVal float64
 	for idx, ct := range counters[:limit] {
