@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -41,7 +42,7 @@ var (
 		{
 			name: "Per-call overhead time",
 			format: func(v float64) string {
-				return fmt.Sprintf("%s", time.Duration(v))
+				return format(uint64(v))
 			},
 			value: func(counter *auditd.Counter) float64 {
 				return float64(counter.TimeIn) / float64(counter.NumCalls)
@@ -62,7 +63,7 @@ var (
 		{
 			name: "Total overhead time",
 			format: func(v float64) string {
-				return fmt.Sprintf("%s", time.Duration(v))
+				return format(uint64(v))
 			},
 			value: func(counter *auditd.Counter) float64 {
 				return float64(counter.TimeIn)
@@ -77,6 +78,29 @@ var (
 
 func init() {
 	cmd.ShowCmd.AddCommand(auditdOverhead)
+}
+
+var durationUnits = []struct {
+	unit  string
+	value time.Duration
+}{
+	{unit: "ns", value: time.Nanosecond},
+	{unit: "µs", value: time.Microsecond},
+	{unit: "ms", value: time.Millisecond},
+	{unit: "s", value: time.Second},
+	{unit: "m", value: time.Minute},
+	{unit: "h", value: time.Hour},
+	{unit: "d", value: time.Hour * 24},
+	{unit: "?", value: math.MaxInt64},
+}
+
+func format(duration uint64) string {
+	for idx, u := range durationUnits[:len(durationUnits)-1] {
+		if duration < uint64(durationUnits[idx+1].value.Nanoseconds()) {
+			return fmt.Sprintf("%.1f%s", float64(duration)/float64(u.value), u.unit)
+		}
+	}
+	return time.Duration(duration).String()
 }
 
 func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
@@ -331,8 +355,8 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 		table[idx] = []string{
 			name,
 			fmt.Sprintf(" %d", ct.NumCalls),
-			fmt.Sprintf(" %s", time.Duration(ct.TimeOut)),
-			fmt.Sprintf(" %s", time.Duration(ct.TimeIn)),
+			fmt.Sprintf(" %s", format(ct.TimeOut)),
+			fmt.Sprintf(" %s", format(ct.TimeIn)),
 			fmt.Sprintf(" %s", sorter.format(value)),
 		}
 		for j, str := range table[idx] {
