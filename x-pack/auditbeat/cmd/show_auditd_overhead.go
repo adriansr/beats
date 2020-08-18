@@ -5,6 +5,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 	"unicode/utf8"
@@ -12,6 +13,7 @@ import (
 	"github.com/elastic/beats/v7/auditbeat/cmd"
 	"github.com/elastic/beats/v7/auditbeat/module/auditd"
 	"github.com/elastic/beats/v7/libbeat/logp"
+	"github.com/elastic/go-libaudit/v2"
 	"github.com/elastic/go-libaudit/v2/auparse"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -118,6 +120,16 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
+	auditCli, err := libaudit.NewAuditClient(nil)
+	if err != nil {
+		return errors.Wrap(err, "connecting to audit")
+	}
+	defer func() {
+		if err := auditCli.Close(); err != nil {
+			log.Errorf("Failed stopping audit client")
+		}
+	}()
+
 	// Enter "alternate screen"
 	fmt.Print("\033[?1049h")
 	// Leave alternate screen on termination
@@ -126,13 +138,37 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 	timerC := time.Tick(2 * time.Second)
 	paused := false
 	forceUpdate := false
+
+	auditStatus, err := auditCli.GetStatus()
+	if err != nil {
+		return errors.Wrap(err, "failed getting audit state")
+	}
+
+	stats := monitor.Stats()
+	// Wait until some stats
+	for it := 0; it < 10 && len(stats.Counters) == 0; it++ {
+		time.Sleep(time.Second / 10)
+	}
+
 	for {
 		if !paused || forceUpdate {
-			if err := display(monitor.Stats()); err != nil {
+			if err := display(stats, auditStatus); err != nil {
 				panic(err)
 			}
 			forceUpdate = false
 		}
+		if paused {
+			w, h, err := terminal.GetSize(0)
+			if err != nil {
+				panic(err)
+			}
+			const paused = "[PAUSED]"
+			var t termBuffer
+			t.MoveTo(h, w-len(paused))
+			t.SetColor(Yellow).SetColor(Red.bg().bright())
+			t.Print(paused).SetColor(Default).Write()
+		}
+
 		select {
 		case chr := <-inputC:
 			switch chr {
@@ -150,22 +186,15 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 				forceUpdate = true
 			case 'p', 'P':
 				paused = !paused
-				if paused {
-					w, h, err := terminal.GetSize(0)
-					if err != nil {
-						panic(err)
-					}
-					const paused = "[PAUSED]"
-					var t termBuffer
-					t.MoveTo(h, w-len(paused))
-					t.SetColor(Yellow).SetColor(Red.bg().bright())
-					t.Print(paused).SetColor(Default).Write()
-				}
 			case 'r', 'R':
 				monitor.Clear()
 			}
 
 		case <-timerC:
+			stats = monitor.Stats()
+			if auditStatus, err = auditCli.GetStatus(); err != nil {
+				return errors.Wrap(err, "failed getting audit state")
+			}
 		}
 	}
 }
@@ -263,7 +292,7 @@ var keys = [][2]string{
 
 var widths []int
 
-func display(stats auditd.Stats) error {
+func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 	width, height, err := terminal.GetSize(0)
 	if err != nil {
 		return err
@@ -277,8 +306,9 @@ func display(stats auditd.Stats) error {
 		return sorter.value(counters[i]) > sorter.value(counters[j])
 	})
 	limit, excess := len(counters), 0
-	if limit > height-4 {
-		limit = height - 4
+	const fixedLines = 5
+	if limit > height-fixedLines {
+		limit = height - fixedLines
 		excess = len(counters) - limit
 	}
 	var table = make([][]string, limit)
@@ -315,17 +345,33 @@ func display(stats auditd.Stats) error {
 	var t termBuffer
 	// Clear the screen and move cursor to the top-left
 	t.MoveTo(0, 0).ClearBelowCursor()
-	// Status line
-	t.SetColor(Black.bg()).SetColor(Cyan).Print("Syscalls: ")
-	t.SetColor(Cyan.bright()).Printf("%10d", len(counters))
-	t.SetColor(Default).SetColor(Cyan).Print(" Trace events: ")
-	t.SetColor(Cyan.bright()).Printf("%10d", stats.Calls)
+	// Audit status line
+	t.SetColor(Green.bright()).Print("AUDIT  ").SetColor(Default)
+	t.SetColor(Default).SetColor(Cyan).Print(" PID: ")
+	if auditStatus.PID != 0 {
+		t.SetColor(Cyan.bright()).Printf("%s", getProgramNameFromPID(auditStatus.PID))
+		t.SetColor(Default).SetColor(Cyan).Printf("[%d]", auditStatus.PID)
+	} else {
+		t.SetColor(Cyan).Print("(none)")
+	}
+	t.SetColor(Default).SetColor(Cyan).Print(" Backlog: ")
+	t.SetColor(Cyan.bright()).Printf("%5d", auditStatus.Backlog)
+	t.SetColor(Default).SetColor(Cyan).Printf("/%-5d", auditStatus.BacklogLimit)
 	t.SetColor(Default).SetColor(Cyan).Print(" Lost: ")
-	t.SetColor(Red.bright()).Printf("%10d\r\n", stats.Lost)
+	t.SetColor(Red.bright()).Printf("%-10d\r\n", auditStatus.Lost).SetColor(Default)
+
+	// Kprobes monitoring status line
+	t.SetColor(Green.bright()).Print("KPROBES").SetColor(Default)
+	t.SetColor(Black.bg()).SetColor(Cyan).Print(" Syscalls: ")
+	t.SetColor(Cyan.bright()).Printf("%-10d", len(counters))
+	t.SetColor(Default).SetColor(Cyan).Print(" Trace events: ")
+	t.SetColor(Cyan.bright()).Printf("%-10d", stats.Calls)
+	t.SetColor(Default).SetColor(Cyan).Print(" Lost: ")
+	t.SetColor(Red.bright()).Printf("%-10d\r\n", stats.Lost)
 
 	// Sort line
 	const sortBy = " Sorted by: "
-	t.SetColor(Black).SetColor(White.bright().bg()).Print(sortBy)
+	t.SetColor(Default).SetColor(White.bright().bg()).Print(sortBy)
 	t.SetColor(Yellow).SetColor(Cyan.bright().bg()).Print(sorter.name)
 	t.Fill(width - len(sorter.name) - len(sortBy)).CRLF()
 
@@ -364,4 +410,14 @@ func display(stats auditd.Stats) error {
 	t.Fill(remain)
 	t.SetColor(Default).Write()
 	return nil
+}
+
+func getProgramNameFromPID(pid uint32) string {
+	path := fmt.Sprintf("/proc/%d/exe", pid)
+	exePath, err := os.Readlink(path)
+	if err != nil {
+		// Not a running process
+		return ""
+	}
+	return filepath.Base(exePath)
 }
