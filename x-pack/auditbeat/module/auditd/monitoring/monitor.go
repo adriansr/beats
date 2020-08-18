@@ -264,3 +264,14 @@ func (m *Monitor) Stats() auditd.Stats {
 		Lost:     lost,
 	}
 }
+
+func (m *Monitor) Clear() {
+	empty := auditd.Stats{
+		Counters: make(map[int]*auditd.Counter),
+		Calls:    0,
+		Lost:     0,
+	}
+	m.Lock()
+	m.stats = empty
+	m.Unlock()
+}

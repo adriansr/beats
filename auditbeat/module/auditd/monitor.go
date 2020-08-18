@@ -11,6 +11,7 @@ type Monitor interface {
 	Start() error
 	Stop() error
 	Stats() Stats
+	Clear()
 }
 
 type MonitorRegistry struct {

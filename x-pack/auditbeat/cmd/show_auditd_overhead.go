@@ -144,6 +144,8 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 				forceUpdate = true
 			case 'p', 'P':
 				paused = !paused
+			case 'r', 'R':
+				monitor.Clear()
 			}
 
 		case <-timerC:
@@ -243,7 +245,8 @@ var keys = [][2]string{
 	{"[q]", "Exit "},
 	{"[s]", "Next sort "},
 	{"[S]", "Prev sort "},
-	{"[P]", "Pause"},
+	{"[P]", "Pause "},
+	{"[R]", "Reset stats "},
 }
 
 func display(stats auditd.Stats) error {
