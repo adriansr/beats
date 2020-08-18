@@ -150,6 +150,17 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 				forceUpdate = true
 			case 'p', 'P':
 				paused = !paused
+				if paused {
+					w, h, err := terminal.GetSize(0)
+					if err != nil {
+						panic(err)
+					}
+					const paused = "[PAUSED]"
+					var t termBuffer
+					t.MoveTo(h, w-len(paused))
+					t.SetColor(Yellow).SetColor(Red.bg().bright())
+					t.Print(paused).SetColor(Default).Write()
+				}
 			case 'r', 'R':
 				monitor.Clear()
 			}
