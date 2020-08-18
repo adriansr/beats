@@ -386,11 +386,11 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 
 	// Kprobes monitoring status line
 	t.SetColor(Green.bright()).Print("KPROBES").SetColor(Default)
-	t.SetColor(Black.bg()).SetColor(Cyan).Print(" Syscalls: ")
+	t.SetColor(Default).SetColor(Cyan).Print(" Syscalls: ")
 	t.SetColor(Cyan.bright()).Printf("%-10d", len(counters))
 	t.SetColor(Default).SetColor(Cyan).Print(" Trace events: ")
 	t.SetColor(Cyan.bright()).Printf("%-10d", stats.Calls)
-	t.SetColor(Default).SetColor(Cyan).Print(" Lost: ")
+	t.SetColor(Default).SetColor(Cyan).Print(" Dropped: ")
 	t.SetColor(Red.bright()).Printf("%-10d\r\n", stats.Lost)
 
 	// Sort line
