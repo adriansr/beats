@@ -17,7 +17,7 @@ var kprobes = []helper.ProbeDef{
 			Name:      "entry_in",
 			Address:   "__audit_syscall_entry",
 			Fetchargs: "sysno=%di",
-			Filter:    "sysno>1",
+			//Filter:    "sysno>1",
 		},
 		Decoder: func(desc tracing.ProbeFormat) (tracing.Decoder, error) {
 			return tracing.NewStructDecoder(desc, auditEntryEventPool.Get)
