@@ -312,13 +312,14 @@ func display(stats auditd.Stats) error {
 	t.SetColor(Default).SetColor(Cyan).Print(" Lost: ")
 	t.SetColor(Red.bright()).Printf("%10d\r\n", stats.Lost)
 
+	// Sort line
 	const sortBy = " Sorted by: "
 	t.SetColor(Black).SetColor(White.bright().bg()).Print(sortBy)
 	t.SetColor(Yellow).SetColor(Cyan.bright().bg()).Print(sorter.name)
 	t.Fill(width - len(sorter.name) - len(sortBy)).CRLF()
 
-	// Print table header
-	t.SetColor(Default).SetColor(Black).SetColor(Blue.bg())
+	// Table header
+	t.SetColor(Default).SetColor(White).SetColor(Blue.bright().bg())
 	remain := width
 	for idx, w := range widths {
 		t.Fill(w - len(columns[idx])).Print(columns[idx])
