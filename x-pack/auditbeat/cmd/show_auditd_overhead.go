@@ -37,27 +37,6 @@ var (
 
 	sortTypes = []sorter{
 		{
-			name: "By accumulated overhead %",
-			format: func(v float64) string {
-				return fmt.Sprintf("%3.1f%%", v)
-			},
-			value: func(counter *auditd.Counter) float64 {
-				if counter.TimeOut == 0 {
-					return 0
-				}
-				return float64(counter.TimeIn) * 100.0 / float64(counter.TimeOut)
-			},
-		},
-		{
-			name: "By accumulated overhead time",
-			format: func(v float64) string {
-				return fmt.Sprintf("%s", time.Duration(v))
-			},
-			value: func(counter *auditd.Counter) float64 {
-				return float64(counter.TimeIn)
-			},
-		},
-		{
 			name: "Per-call overhead time",
 			format: func(v float64) string {
 				return fmt.Sprintf("%s", time.Duration(v))
@@ -75,7 +54,16 @@ var (
 				if counter.TimeOut == 0 {
 					return 0
 				}
-				return float64(counter.TimeIn) * 100.0 / (float64(counter.TimeOut) * float64(counter.NumCalls))
+				return float64(counter.TimeIn) * 100.0 / (float64(counter.TimeOut))
+			},
+		},
+		{
+			name: "Total overhead time",
+			format: func(v float64) string {
+				return fmt.Sprintf("%s", time.Duration(v))
+			},
+			value: func(counter *auditd.Counter) float64 {
+				return float64(counter.TimeIn)
 			},
 		},
 	}
