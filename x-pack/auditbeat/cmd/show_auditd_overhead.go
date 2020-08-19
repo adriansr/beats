@@ -394,13 +394,20 @@ func (c Color) bright() Color {
 	return c | 0x80
 }
 
+func (c Color) underline() Color {
+	return c | 0x40
+}
+
 func (t *termBuffer) SetColor(c Color) *termBuffer {
-	bright := ""
+	extra := ""
 	if c&0x80 != 0 {
-		bright = ";1"
-		c &= 0x7f
+		extra = ";1"
 	}
-	return t.Printf("\033[%d%sm", c, bright)
+	if c&0x40 != 0 {
+		extra += ";4"
+	}
+	c &= 0x3f
+	return t.Printf("\033[%d%sm", c, extra)
 }
 
 func (t *termBuffer) Fill(n int) *termBuffer {
@@ -455,7 +462,7 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 		return sorter.value(counters[i]) > sorter.value(counters[j])
 	})
 	limit, excess := len(counters), 0
-	const fixedLines = 5
+	const fixedLines = 6
 	if limit > height-fixedLines {
 		limit = height - fixedLines
 		excess = len(counters) - limit
@@ -495,32 +502,37 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 	// Clear the screen and move cursor to the top-left
 	t.MoveTo(0, 0).ClearBelowCursor()
 	// Audit status line
-	t.SetColor(Green.bright()).Print("AUDIT  ").SetColor(Default)
+	t.SetColor(Green.bright()).Print("AUDIT STATUS").SetColor(Default)
 	t.SetColor(Default).SetColor(Cyan).Print(" PID: ")
 	if auditStatus.PID != 0 {
-		t.SetColor(Cyan.bright()).Printf("%s", getProgramNameFromPID(auditStatus.PID))
 		t.SetColor(Default).SetColor(Cyan).Printf("[%d]", auditStatus.PID)
+		t.SetColor(Cyan.bright()).Printf(" %s", getProgramNameFromPID(auditStatus.PID))
 	} else {
 		t.SetColor(Cyan).Print("(none)")
 	}
-	t.SetColor(Default).SetColor(Cyan).Print(" Backlog: ")
-	t.SetColor(Cyan.bright()).Printf("%5d", auditStatus.Backlog)
-	t.SetColor(Default).SetColor(Cyan).Printf("/%-5d", auditStatus.BacklogLimit)
-	t.SetColor(Default).SetColor(Cyan).Print(" Lost: ")
-	t.SetColor(Red.bright()).Printf("%-10d\r\n", auditStatus.Lost).SetColor(Default)
+	t.CRLF()
+	t.SetColor(Default).SetColor(Cyan.underline()).Print("             Backlog: ")
+	t.SetColor(Cyan.bright().underline()).Printf("%5d", auditStatus.Backlog)
+	t.SetColor(Default).SetColor(Cyan.underline()).Printf("/%-5d", auditStatus.BacklogLimit)
+	t.SetColor(Default).SetColor(Cyan.underline()).Print(" Lost: ")
+	t.SetColor(Red.bright().underline()).Printf("%-10d", auditStatus.Lost).SetColor(Default)
+	t.SetColor(Default).SetColor(Cyan.underline()).Print(" Failures: ")
+	t.SetColor(Yellow.bright().underline()).Printf("%-10d", auditStatus.Failure)
+	// This needs to be adjusted to the size of this line
+	t.SetColor(Cyan.bright().underline()).Fill(width - 71).SetColor(Default).CRLF()
 
-	// Kprobes monitoring status line
-	t.SetColor(Green.bright()).Print("KPROBES").SetColor(Default)
+	t.SetColor(Green.bright()).Print("MONITORING  ").SetColor(Default)
 	t.SetColor(Default).SetColor(Cyan).Print(" Syscalls: ")
-	t.SetColor(Cyan.bright()).Printf("%-10d", len(counters))
-	t.SetColor(Default).SetColor(Cyan).Print(" Trace events: ")
+	t.SetColor(Cyan.bright()).Printf("%4d", len(counters))
+	t.SetColor(Default).SetColor(Cyan).Print("     Events: ")
 	t.SetColor(Cyan.bright()).Printf("%-10d", stats.Calls)
-	t.SetColor(Default).SetColor(Cyan).Print(" Dropped: ")
-	t.SetColor(Red.bright()).Printf("%-10d\r\n", stats.Lost)
+	t.SetColor(Default).SetColor(Cyan).Print("  Dropped: ")
+	t.SetColor(Red.bright()).Printf("%-10d", stats.Lost)
+	t.CRLF()
 
 	// Sort line
 	const sortBy = " Sorted by: "
-	t.SetColor(Default).SetColor(White.bright().bg()).Print(sortBy)
+	t.SetColor(Default).SetColor(White.bg()).SetColor(Black).Print(sortBy)
 	t.SetColor(Yellow).SetColor(Cyan.bright().bg()).Print(sorter.name)
 	t.Fill(width - len(sorter.name) - len(sortBy)).CRLF()
 
