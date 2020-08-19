@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"math"
 	"os"
@@ -14,8 +15,10 @@ import (
 	"github.com/elastic/beats/v7/auditbeat/cmd"
 	"github.com/elastic/beats/v7/auditbeat/module/auditd"
 	"github.com/elastic/beats/v7/libbeat/logp"
+	"github.com/elastic/beats/v7/libbeat/service"
 	"github.com/elastic/go-libaudit/v2"
 	"github.com/elastic/go-libaudit/v2/auparse"
+	"github.com/elastic/go-libaudit/v2/rule"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
@@ -28,10 +31,14 @@ type sorter struct {
 }
 
 var (
-	auditdOverhead = &cobra.Command{
+	auditdOverheadCmd = &cobra.Command{
 		Use:  "auditd-overhead",
 		Long: "Show audit overhead on syscalls",
-		RunE: runAuditOverhead,
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := runAuditOverhead(cmd, args); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			}
+		},
 	}
 
 	syscallNames = auparse.AuditSyscalls["x86_64"]
@@ -77,7 +84,10 @@ var (
 )
 
 func init() {
-	cmd.ShowCmd.AddCommand(auditdOverhead)
+	auditdOverheadCmd.Flags().AddGoFlag(flag.CommandLine.Lookup("httpprof"))
+	auditdOverheadCmd.Flags().BoolP("interactive", "i", false, "interactive mode")
+	auditdOverheadCmd.Flags().DurationP("time", "t", 30*time.Second, "monitoring time")
+	cmd.ShowCmd.AddCommand(auditdOverheadCmd)
 }
 
 var durationUnits = []struct {
@@ -104,6 +114,143 @@ func format(duration uint64) string {
 }
 
 func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
+	// This enables the httpprof server.
+	service.BeforeRun()
+
+	// Connect to auditd client
+	auditCli, err := libaudit.NewAuditClient(nil)
+	if err != nil {
+		return errors.Wrap(err, "connecting to audit")
+	}
+	defer func() {
+		if err := auditCli.Close(); err != nil {
+			log.Errorf("Failed stopping audit client")
+		}
+	}()
+
+	// Launch syscall monitor
+	monitor := auditd.SyscallMonitor.Get()
+	if monitor == nil {
+		return errors.New("syscall monitor is not available")
+	}
+	if err = monitor.Start(); err != nil {
+		return errors.Wrap(err, "failed to start syscall monitor")
+	}
+	defer func() {
+		if err := monitor.Stop(); err != nil {
+			log.Errorf("Failed stopping syscall monitor: %v", err)
+		}
+	}()
+
+	if interactive, _ := cmd.Flags().GetBool("interactive"); interactive {
+		return runInteractive(monitor, auditCli)
+	}
+
+	duration, _ := cmd.Flags().GetDuration("time")
+	deadlineC := time.After(duration)
+
+	fmt.Fprintf(os.Stderr, "Monitoring syscall overhead for %v ...\n", duration)
+
+	initialStatus, err := GetAuditStatus(auditCli, true, false /*TODO*/)
+	if err != nil {
+		return err
+	}
+	<-deadlineC
+
+	stats := monitor.Stats()
+	finalStatus, err := GetAuditStatus(auditCli, true, false /*TODO*/)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Auditbeat syscall overhead report\n")
+	fmt.Printf("=================================\n")
+	fmt.Printf("Date: %s\n", time.Now().Format(time.RFC3339))
+	fmt.Printf("Duration: %s\n", duration)
+	fmt.Printf("Auditd status (at start):\n")
+	initialStatus.Print()
+	fmt.Println()
+	fmt.Printf("Auditd status (at end):\n")
+	finalStatus.Print()
+	fmt.Println()
+	fmt.Printf("Number of syscall functions monitored: %d\n", len(stats.Counters))
+	fmt.Printf("Total calls: %d\n", stats.Calls)
+	fmt.Printf("Tracing events lost: %d\n", stats.Lost)
+
+	counters := make([]*auditd.Counter, 0, len(stats.Counters))
+	for _, v := range stats.Counters {
+		counters = append(counters, v)
+	}
+	sort.Slice(counters, func(i, j int) bool {
+		return syscallNames[counters[i].SysNo] < syscallNames[counters[j].SysNo]
+	})
+	for _, ct := range counters {
+		fmt.Printf("- %s sysno:%d calls:%d audit_time:%s total_time:%s\n", syscallNames[ct.SysNo], ct.SysNo, ct.NumCalls, format(ct.TimeIn), format(ct.TimeOut))
+	}
+	fmt.Println()
+	for _, st := range sortTypes {
+		sort.Slice(counters, func(i, j int) bool {
+			return st.value(counters[i]) > st.value(counters[j])
+		})
+		fmt.Printf("Sorted by: %s\n", st.name)
+		for _, ct := range counters {
+			fmt.Printf("- %s %s\n", syscallNames[ct.SysNo], st.format(st.value(ct)))
+		}
+		fmt.Println()
+	}
+	return nil
+}
+
+type auditStatus struct {
+	rules        []string
+	auditProgram string
+	status       libaudit.AuditStatus
+}
+
+func GetAuditStatus(auditCli *libaudit.AuditClient, fetchRules, resolveIDs bool) (st auditStatus, err error) {
+	status, err := auditCli.GetStatus()
+	if err != nil {
+		return st, errors.Wrap(err, "getting audit rules")
+	}
+
+	if fetchRules {
+		rawRules, err := auditCli.GetRules()
+		if err != nil {
+			return st, errors.Wrap(err, "getting audit rules")
+		}
+		st.rules = make([]string, len(rawRules))
+		for idx, raw := range rawRules {
+			if st.rules[idx], err = rule.ToCommandLine(raw, resolveIDs); err != nil {
+				return st, errors.Wrapf(err, "parsing rule %d", idx+1)
+			}
+		}
+	}
+	st.status = *status
+	if st.status.PID != 0 {
+		st.auditProgram = getProgramNameFromPID(st.status.PID)
+	}
+	return st, nil
+}
+
+func (st auditStatus) Print() {
+	fmt.Printf("- pid: %d\n", st.status.PID)
+	if st.auditProgram != "" {
+		fmt.Printf("- program: %s\n", st.auditProgram)
+	}
+	fmt.Printf("- enabled: %d\n", st.status.Enabled)
+	fmt.Printf("- failure: %d\n", st.status.Failure)
+	fmt.Printf("- lost: %d\n", st.status.Lost)
+	fmt.Printf("- backlog: %d\n", st.status.Backlog)
+	fmt.Printf("- backlog_limit: %d\n", st.status.BacklogLimit)
+	fmt.Printf("- backlog_wait_time: %d\n", st.status.BacklogWaitTime)
+	fmt.Printf("- rate_limit: %d\n", st.status.RateLimit)
+	fmt.Printf("- feature_bitmap: %#x\n", st.status.FeatureBitmap)
+	fmt.Printf("- rules: %d\n", len(st.rules))
+	for idx, rule := range st.rules {
+		fmt.Printf(" %d: %s\n", idx+1, rule)
+	}
+}
+func runInteractive(monitor auditd.Monitor, auditCli *libaudit.AuditClient) (err error) {
 	log = logp.NewLogger("audit_overhead")
 	if !terminal.IsTerminal(0) {
 		return errors.New("must be run from an ANSI terminal")
@@ -115,18 +262,6 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		if err := terminal.Restore(0, prevState); err != nil {
 			log.Errorf("Failed to restore terminal. Try running `reset` to fix. error=%v", err)
-		}
-	}()
-	monitor := auditd.SyscallMonitor.Get()
-	if monitor == nil {
-		return errors.New("syscall monitor is not available")
-	}
-	if err = monitor.Start(); err != nil {
-		return errors.Wrap(err, "failed to start syscall monitor")
-	}
-	defer func() {
-		if err := monitor.Stop(); err != nil {
-			log.Errorf("Failed stopping syscall monitor: %v", err)
 		}
 	}()
 
@@ -141,16 +276,6 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 				return
 			}
 			inputC <- chr[0]
-		}
-	}()
-
-	auditCli, err := libaudit.NewAuditClient(nil)
-	if err != nil {
-		return errors.Wrap(err, "connecting to audit")
-	}
-	defer func() {
-		if err := auditCli.Close(); err != nil {
-			log.Errorf("Failed stopping audit client")
 		}
 	}()
 
