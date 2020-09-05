@@ -181,7 +181,8 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 		}()
 	}
 
-	/*monitor := SyscallMonitor.Get()
+	monitor := SyscallMonitor.Get()
+	//var monitor Monitor
 	if monitor != nil {
 		ms.log.Info("Starting syscall monitor ...")
 		if err = monitor.Start(); err == nil {
@@ -191,10 +192,33 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 					ms.log.Errorf("Failed to stop syscall monitor: %v", err)
 				}
 			}()
+			// TODO
+			syscallNames := auparse.AuditSyscalls["x86_64"]
+			monitoring.NewFunc(auditdMetrics, "overhead", func(mode monitoring.Mode, visitor monitoring.Visitor) {
+				stats := monitor.Stats()
+				visitor.OnKey("calls")
+				visitor.OnInt(int64(stats.Calls))
+				visitor.OnKey("lost")
+				visitor.OnInt(int64(stats.Lost))
+				for sysNo, counter := range stats.Counters {
+					sysName, found := syscallNames[int(sysNo)]
+					if !found {
+						sysName = fmt.Sprintf("unknown_%d", sysNo)
+					}
+					visitor.OnRegistryStart()
+					visitor.OnKey(fmt.Sprintf("syscall.%s.calls", sysName))
+					visitor.OnInt(int64(counter.NumCalls))
+					visitor.OnKey(fmt.Sprintf("syscall.%s.time", sysName))
+					visitor.OnInt(int64(counter.TimeIn))
+					visitor.OnKey(fmt.Sprintf("syscall.%s.time_per_call", sysName))
+					visitor.OnInt(int64(counter.PerCall()))
+					visitor.OnRegistryFinished()
+				}
+			})
 		} else {
 			ms.log.Errorf("Failed to start syscall monitor: %v", err)
 		}
-	}*/
+	}
 
 	// Spawn the stream buffer consumers
 	numConsumers := ms.config.StreamBufferConsumers

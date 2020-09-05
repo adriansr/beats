@@ -14,9 +14,9 @@ var kprobes = []helper.ProbeDef{
 		Probe: tracing.Probe{
 			Type:      tracing.TypeKProbe,
 			Group:     kprobeGroup,
-			Name:      "entry_in",
-			Address:   "__audit_syscall_entry",
-			Fetchargs: "sysno=%di",
+			Name:      "entry",
+			Address:   "audit_log_exit",
+			Fetchargs: "sysno=+20(%di):u32",
 			//Filter:    "sysno>1",
 		},
 		Decoder: func(desc tracing.ProbeFormat) (tracing.Decoder, error) {
@@ -27,14 +27,14 @@ var kprobes = []helper.ProbeDef{
 		Probe: tracing.Probe{
 			Type:    tracing.TypeKRetProbe,
 			Group:   kprobeGroup,
-			Name:    "entry_out",
-			Address: "__audit_syscall_entry",
+			Name:    "exit",
+			Address: "audit_log_exit",
 		},
 		Decoder: func(desc tracing.ProbeFormat) (tracing.Decoder, error) {
 			return tracing.NewStructDecoder(desc, auditEntryRetEventPool.Get)
 		},
 	},
-	{
+	/*{
 		Probe: tracing.Probe{
 			Type:    tracing.TypeKProbe,
 			Group:   kprobeGroup,
@@ -55,12 +55,12 @@ var kprobes = []helper.ProbeDef{
 		Decoder: func(desc tracing.ProbeFormat) (tracing.Decoder, error) {
 			return tracing.NewStructDecoder(desc, auditExitRetEventPool.Get)
 		},
-	},
+	},*/
 }
 
 type auditEntryEvent struct {
 	Meta  tracing.Metadata `kprobe:"metadata"`
-	SysNO uintptr          `kprobe:"sysno"`
+	SysNO int32            `kprobe:"sysno"`
 }
 
 var auditEntryEventPool = sync.Pool{
@@ -83,7 +83,7 @@ type auditExitEvent struct {
 	Meta tracing.Metadata `kprobe:"metadata"`
 }
 
-var auditExitEventPool = sync.Pool{
+/*var auditExitEventPool = sync.Pool{
 	New: func() interface{} {
 		return new(auditExitEvent)
 	},
@@ -98,3 +98,4 @@ var auditExitRetEventPool = sync.Pool{
 		return new(auditExitRetEvent)
 	},
 }
+*/

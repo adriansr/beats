@@ -45,7 +45,7 @@ func New() auditd.Monitor {
 		close:    make(chan struct{}, 1),
 		syscalls: auparse.AuditSyscalls["x86_64"],
 		stats: auditd.Stats{
-			Counters: make(map[int]*auditd.Counter),
+			Counters: make(map[int32]*auditd.Counter),
 			Calls:    0,
 			Lost:     0,
 		},
@@ -158,11 +158,10 @@ func (m *Monitor) mainLoop() (err error) {
 	}()
 
 	type threadState struct {
-		syscall     int
-		entry, exit struct {
+		syscall int32
+		entry   struct {
 			start, end uint64
 		}
-		check byte
 	}
 	statePool := sync.Pool{
 		New: func() interface{} {
@@ -181,49 +180,27 @@ func (m *Monitor) mainLoop() (err error) {
 			case *auditEntryEvent:
 				st := statePool.Get().(*threadState)
 				st.entry.start = v.Meta.Timestamp
-				st.syscall = int(v.SysNO)
-				st.check = 1
+				st.syscall = v.SysNO
 				threads[v.Meta.TID] = st
 				auditEntryEventPool.Put(v)
 
 			case *auditEntryRetEvent:
 				if st := threads[v.Meta.TID]; st != nil {
 					st.entry.end = v.Meta.Timestamp
-					st.check |= 2
-				}
-				auditEntryRetEventPool.Put(v)
+					if st.entry.start <= st.entry.end {
 
-			case *auditExitEvent:
-				if st := threads[v.Meta.TID]; st != nil {
-					st.exit.start = v.Meta.Timestamp
-					st.check |= 4
-				}
-				auditExitEventPool.Put(v)
-
-			case *auditExitRetEvent:
-				if st := threads[v.Meta.TID]; st != nil {
-					st.exit.end = v.Meta.Timestamp
-					if st.check == 7 &&
-						st.entry.start <= st.entry.end &&
-						st.exit.start <= st.exit.end &&
-						st.entry.end <= st.exit.start {
-
-						timeIn := (st.entry.end - st.entry.start) + (st.exit.end - st.exit.start)
-						timeOut := st.exit.end - st.entry.start
-
+						timeIn := (st.entry.end - st.entry.start)
 						m.Lock()
 						if ct, ok := m.stats.Counters[st.syscall]; ok {
 							// Update
 							ct.NumCalls++
 							ct.TimeIn += timeIn
-							ct.TimeOut += timeOut
 						} else {
 							// Create
 							m.stats.Counters[st.syscall] = &auditd.Counter{
 								SysNo:    st.syscall,
 								NumCalls: 1,
 								TimeIn:   timeIn,
-								TimeOut:  timeOut,
 							}
 						}
 						m.Unlock()
@@ -231,7 +208,7 @@ func (m *Monitor) mainLoop() (err error) {
 					delete(threads, v.Meta.TID)
 					statePool.Put(st)
 				}
-				auditExitRetEventPool.Put(v)
+				auditEntryRetEventPool.Put(v)
 
 			default:
 				m.log.Errorf("Unknown type received via channel: %T", v)
@@ -251,29 +228,22 @@ func (m *Monitor) mainLoop() (err error) {
 }
 
 func (m *Monitor) Stats() auditd.Stats {
-	m.Lock()
-	copy := make(map[int]*auditd.Counter, len(m.stats.Counters))
-	calls := atomic.LoadUint64(&m.stats.Calls)
-	lost := atomic.LoadUint64(&m.stats.Lost)
-	for k, v := range m.stats.Counters {
-		entry := *v
-		copy[k] = &entry
-	}
-	m.Unlock()
-	return auditd.Stats{
-		Counters: copy,
-		Calls:    calls,
-		Lost:     lost,
-	}
+	return m.clear()
 }
 
 func (m *Monitor) Clear() {
+	m.clear()
+}
+
+func (m *Monitor) clear() auditd.Stats {
 	empty := auditd.Stats{
-		Counters: make(map[int]*auditd.Counter),
+		Counters: make(map[int32]*auditd.Counter),
 		Calls:    0,
 		Lost:     0,
 	}
 	m.Lock()
+	saved := m.stats
 	m.stats = empty
 	m.Unlock()
+	return saved
 }

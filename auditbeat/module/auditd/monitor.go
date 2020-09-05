@@ -40,16 +40,15 @@ func (reg *MonitorRegistry) Register(m func() Monitor) error {
 }
 
 type Stats struct {
-	Counters map[int]*Counter
+	Counters map[int32]*Counter
 	Calls    uint64
 	Lost     uint64
 }
 
 type Counter struct {
-	SysNo    int
+	SysNo    int32
 	NumCalls uint64
 	TimeIn   uint64
-	TimeOut  uint64
 }
 
 func (ct Counter) PerCall() time.Duration {
@@ -59,5 +58,5 @@ func (ct Counter) PerCall() time.Duration {
 func (ct Counter) Print(syscalls map[int]string) string {
 	abs := time.Duration(ct.TimeIn)
 	return fmt.Sprintf("%s calls:%d totalT:%s relT:%s",
-		syscalls[ct.SysNo], ct.NumCalls, abs, abs/time.Duration(ct.NumCalls))
+		syscalls[int(ct.SysNo)], ct.NumCalls, abs, abs/time.Duration(ct.NumCalls))
 }

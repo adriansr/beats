@@ -56,18 +56,6 @@ var (
 			},
 		},
 		{
-			name: "Per-call overhead %",
-			format: func(v float64) string {
-				return fmt.Sprintf("%3.1f%%", v)
-			},
-			value: func(counter *auditd.Counter) float64 {
-				if counter.TimeOut == 0 {
-					return 0
-				}
-				return float64(counter.TimeIn) * 100.0 / (float64(counter.TimeOut))
-			},
-		},
-		{
 			name: "Total overhead time",
 			format: func(v float64) string {
 				return format(uint64(v))
@@ -182,10 +170,10 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 		counters = append(counters, v)
 	}
 	sort.Slice(counters, func(i, j int) bool {
-		return syscallNames[counters[i].SysNo] < syscallNames[counters[j].SysNo]
+		return syscallNames[int(counters[i].SysNo)] < syscallNames[int(counters[j].SysNo)]
 	})
 	for _, ct := range counters {
-		fmt.Printf("- %s sysno:%d calls:%d audit_time:%s total_time:%s\n", syscallNames[ct.SysNo], ct.SysNo, ct.NumCalls, format(ct.TimeIn), format(ct.TimeOut))
+		fmt.Printf("- %s sysno:%d calls:%d audit_time:%s\n", syscallNames[int(ct.SysNo)], ct.SysNo, ct.NumCalls, format(ct.TimeIn))
 	}
 	fmt.Println()
 	for _, st := range sortTypes {
@@ -194,7 +182,7 @@ func runAuditOverhead(cmd *cobra.Command, args []string) (err error) {
 		})
 		fmt.Printf("Sorted by: %s\n", st.name)
 		for _, ct := range counters {
-			fmt.Printf("- %s %s\n", syscallNames[ct.SysNo], st.format(st.value(ct)))
+			fmt.Printf("- %s %s\n", syscallNames[int(ct.SysNo)], st.format(st.value(ct)))
 		}
 		fmt.Println()
 	}
@@ -476,7 +464,7 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 	}
 	var maxVal float64
 	for idx, ct := range counters[:limit] {
-		name := syscallNames[ct.SysNo]
+		name := syscallNames[int(ct.SysNo)]
 		if name == "" {
 			name = fmt.Sprintf("???(%d)", ct.SysNo)
 		}
@@ -487,7 +475,7 @@ func display(stats auditd.Stats, auditStatus *libaudit.AuditStatus) error {
 		table[idx] = []string{
 			name,
 			fmt.Sprintf(" %d", ct.NumCalls),
-			fmt.Sprintf(" %s", format(ct.TimeOut)),
+			"-",
 			fmt.Sprintf(" %s", format(ct.TimeIn)),
 			fmt.Sprintf(" %s", sorter.format(value)),
 		}
