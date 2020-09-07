@@ -5,11 +5,11 @@ package monitoring
 import (
 	"sync"
 
-	"github.com/elastic/beats/v7/x-pack/auditbeat/module/system/socket/helper"
 	"github.com/elastic/beats/v7/x-pack/auditbeat/tracing"
+	"github.com/elastic/beats/v7/x-pack/auditbeat/tracing/kprobes"
 )
 
-var kprobes = []helper.ProbeDef{
+var auditKprobes = []kprobes.ProbeDef{
 	{
 		Probe: tracing.Probe{
 			Type:      tracing.TypeKProbe,
@@ -34,28 +34,6 @@ var kprobes = []helper.ProbeDef{
 			return tracing.NewStructDecoder(desc, auditEntryRetEventPool.Get)
 		},
 	},
-	/*{
-		Probe: tracing.Probe{
-			Type:    tracing.TypeKProbe,
-			Group:   kprobeGroup,
-			Name:    "exit_in",
-			Address: "__audit_syscall_exit",
-		},
-		Decoder: func(desc tracing.ProbeFormat) (tracing.Decoder, error) {
-			return tracing.NewStructDecoder(desc, auditExitEventPool.Get)
-		},
-	},
-	{
-		Probe: tracing.Probe{
-			Type:    tracing.TypeKRetProbe,
-			Group:   kprobeGroup,
-			Name:    "exit_out",
-			Address: "__audit_syscall_exit",
-		},
-		Decoder: func(desc tracing.ProbeFormat) (tracing.Decoder, error) {
-			return tracing.NewStructDecoder(desc, auditExitRetEventPool.Get)
-		},
-	},*/
 }
 
 type auditEntryEvent struct {
@@ -78,24 +56,3 @@ var auditEntryRetEventPool = sync.Pool{
 		return new(auditEntryRetEvent)
 	},
 }
-
-type auditExitEvent struct {
-	Meta tracing.Metadata `kprobe:"metadata"`
-}
-
-/*var auditExitEventPool = sync.Pool{
-	New: func() interface{} {
-		return new(auditExitEvent)
-	},
-}
-
-type auditExitRetEvent struct {
-	Meta tracing.Metadata `kprobe:"metadata"`
-}
-
-var auditExitRetEventPool = sync.Pool{
-	New: func() interface{} {
-		return new(auditExitRetEvent)
-	},
-}
-*/

@@ -8,18 +8,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/elastic/go-libaudit/v2/auparse"
 	"github.com/pkg/errors"
-
-	"github.com/elastic/go-perf"
 
 	"github.com/elastic/beats/v7/auditbeat/module/auditd"
 	"github.com/elastic/beats/v7/libbeat/logp"
 	"github.com/elastic/beats/v7/x-pack/auditbeat/tracing"
+	"github.com/elastic/beats/v7/x-pack/auditbeat/tracing/kprobes"
+	"github.com/elastic/go-libaudit/v2/auparse"
+	"github.com/elastic/go-perf"
 )
 
 const (
-	kprobeGroup = "ab_syscmon"
+	kprobeGroup = "ab_auditd"
 	logSelector = "auditd_monitor"
 )
 
@@ -29,14 +29,12 @@ func init() {
 
 type Monitor struct {
 	sync.Mutex
-	traceFS  *tracing.TraceFS
-	channel  *tracing.PerfChannel
+	engine   *kprobes.Engine
 	log      *logp.Logger
 	close    chan struct{}
 	wg       sync.WaitGroup
 	syscalls map[int]string
-	//stats    map[int]*auditd.Counter
-	stats auditd.Stats
+	stats    auditd.Stats
 }
 
 func New() auditd.Monitor {
@@ -56,8 +54,8 @@ func (m *Monitor) Start() (err error) {
 	if err = m.setup(); err != nil {
 		return errors.Wrap(err, "setup failed")
 	}
-	if err = m.channel.Run(); err != nil {
-		return errors.Wrap(err, "running perf channel")
+	if err = m.engine.Start(); err != nil {
+		return errors.Wrap(err, "running kprobe engine")
 	}
 	m.wg.Add(1)
 	go func() {
@@ -107,53 +105,28 @@ func (m *Monitor) print() {
 }
 
 func (m *Monitor) setup() (err error) {
-	if m.traceFS, err = tracing.NewTraceFS(); err != nil {
-		return errors.Wrap(err, "no tracefs")
+	if m.engine, err = kprobes.New(kprobeGroup,
+		kprobes.WithPerfChannelConf(
+			tracing.WithTID(perf.AllThreads),
+			tracing.WithBufferSize(4096),
+			tracing.WithErrBufferSize(1),
+			tracing.WithLostBufferSize(128),
+			tracing.WithRingSizeExponent(7),
+		),
+		kprobes.WithAutoMount(true),
+		kprobes.WithLogger(m.log),
+		kprobes.WithSymbolResolution("AUDIT_LOG_EXIT", []string{"audit_log_exit", "__audit_log_exit"}),
+		kprobes.WithProbes(auditKprobes),
+	); err != nil {
+		return errors.Wrapf(err, "unable to create kprobe engine")
 	}
-	if m.channel, err = tracing.NewPerfChannel(
-		tracing.WithBufferSize(4096),
-		tracing.WithErrBufferSize(1),
-		tracing.WithLostBufferSize(128),
-		tracing.WithRingSizeExponent(7),
-		tracing.WithTID(perf.AllThreads),
-		tracing.WithTimestamp()); err != nil {
-		return errors.Wrapf(err, "unable to create perf channel")
-	}
-
-	for _, probe := range kprobes {
-		if err = m.traceFS.AddKProbe(probe.Probe); err != nil {
-			return errors.Wrapf(err, "failed installing kprobe '%s'", probe.Probe.String())
-		}
-		format, err := m.traceFS.LoadProbeFormat(probe.Probe)
-		if err != nil {
-			return errors.Wrapf(err, "failed loading kprobe format for '%s'", probe.Probe.String())
-		}
-		decoder, err := probe.Decoder(format)
-		if err != nil {
-			return errors.Wrapf(err, "failed creating kprobe decoder for '%s'", probe.Probe.String())
-		}
-		if err := m.channel.MonitorProbe(format, decoder); err != nil {
-			return errors.Wrapf(err, "failed monitoring kprobe '%s'", probe.Probe.String())
-		}
-	}
-	return nil
+	return m.engine.Setup()
 }
 
 func (m *Monitor) mainLoop() (err error) {
 	defer func() {
-		if probes, err := m.traceFS.ListKProbes(); err == nil {
-			for _, probe := range probes {
-				if err := m.traceFS.RemoveKProbe(probe); err != nil {
-					m.log.Errorf("Error removing kprobe '%s': %v", probe.String(), err)
-				}
-			}
-		} else {
-			m.log.Errorf("Error stopping perf channel: %v", err)
-		}
-	}()
-	defer func() {
-		if err := m.channel.Close(); err != nil {
-			m.log.Errorf("Error stopping perf channel: %v", err)
+		if err := m.engine.Stop(); err != nil {
+			m.log.Errorf("Stopping kprobe engine: %v", err)
 		}
 	}()
 
@@ -174,7 +147,7 @@ func (m *Monitor) mainLoop() (err error) {
 		select {
 		case <-m.close:
 			return nil
-		case event := <-m.channel.C():
+		case event := <-m.engine.C():
 			atomic.AddUint64(&m.stats.Calls, 1)
 			switch v := event.(type) {
 			case *auditEntryEvent:
@@ -214,13 +187,13 @@ func (m *Monitor) mainLoop() (err error) {
 				m.log.Errorf("Unknown type received via channel: %T", v)
 			}
 
-		case lost := <-m.channel.LostC():
+		case lost := <-m.engine.LostC():
 			atomic.AddUint64(&m.stats.Lost, lost)
 			m.log.Warnf("Lost %d events", lost)
 			// Get rid of known state
 			threads = make(map[uint32]*threadState, len(threads))
 
-		case err := <-m.channel.ErrC():
+		case err := <-m.engine.ErrC():
 			m.log.Warnf("Error from perf channel: %v", err)
 			return err
 		}

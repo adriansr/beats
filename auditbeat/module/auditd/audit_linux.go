@@ -217,6 +217,7 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 			})
 		} else {
 			ms.log.Errorf("Failed to start syscall monitor: %v", err)
+			monitor.Stop()
 		}
 	}
 
