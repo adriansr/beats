@@ -116,7 +116,7 @@ func (m *Monitor) setup() (err error) {
 		kprobes.WithAutoMount(true),
 		kprobes.WithLogger(m.log),
 		kprobes.WithSymbolResolution("AUDIT_LOG_EXIT", []string{"audit_log_exit", "__audit_log_exit"}),
-		kprobes.WithProbes(auditKprobes),
+		kprobes.WithProbes(auditKprobes...),
 	); err != nil {
 		return errors.Wrapf(err, "unable to create kprobe engine")
 	}
@@ -162,7 +162,7 @@ func (m *Monitor) mainLoop() (err error) {
 					st.entry.end = v.Meta.Timestamp
 					if st.entry.start <= st.entry.end {
 
-						timeIn := (st.entry.end - st.entry.start)
+						timeIn := st.entry.end - st.entry.start
 						m.Lock()
 						if ct, ok := m.stats.Counters[st.syscall]; ok {
 							// Update
