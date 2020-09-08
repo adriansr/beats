@@ -193,28 +193,7 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 				}
 			}()
 			// TODO
-			syscallNames := auparse.AuditSyscalls["x86_64"]
-			monitoring.NewFunc(auditdMetrics, "overhead", func(mode monitoring.Mode, visitor monitoring.Visitor) {
-				stats := monitor.Stats()
-				visitor.OnKey("calls")
-				visitor.OnInt(int64(stats.Calls))
-				visitor.OnKey("lost")
-				visitor.OnInt(int64(stats.Lost))
-				for sysNo, counter := range stats.Counters {
-					sysName, found := syscallNames[int(sysNo)]
-					if !found {
-						sysName = fmt.Sprintf("unknown_%d", sysNo)
-					}
-					visitor.OnRegistryStart()
-					visitor.OnKey(fmt.Sprintf("syscall.%s.calls", sysName))
-					visitor.OnInt(int64(counter.NumCalls))
-					visitor.OnKey(fmt.Sprintf("syscall.%s.time", sysName))
-					visitor.OnInt(int64(counter.TimeIn))
-					visitor.OnKey(fmt.Sprintf("syscall.%s.time_per_call", sysName))
-					visitor.OnInt(int64(counter.PerCall()))
-					visitor.OnRegistryFinished()
-				}
-			})
+			monitoring.NewFunc(auditdMetrics, "overhead", ms.reportOverhead, monitoring.Report)
 		} else {
 			ms.log.Errorf("Failed to start syscall monitor: %v", err)
 			monitor.Stop()
@@ -1050,4 +1029,38 @@ func buildPIDIgnoreRule(pid int) (ruleData auditRule, err error) {
 	ruleData.flags = fmt.Sprintf("-A exit,never -F pid=%d -S all", pid)
 	ruleData.data, err = rule.Build(&r)
 	return ruleData, err
+}
+
+func (ms *MetricSet) reportOverhead(_ monitoring.Mode, visitor monitoring.Visitor) {
+	syscallNames := auparse.AuditSyscalls["x86_64"]
+	monitor := SyscallMonitor.Get()
+	if monitor == nil {
+		return
+	}
+	stats := monitor.Stats()
+	visitor.OnRegistryStart()
+	defer visitor.OnRegistryFinished()
+
+	visitor.OnKey("calls")
+	visitor.OnInt(int64(stats.Calls))
+	visitor.OnKey("lost")
+	visitor.OnInt(int64(stats.Lost))
+	for sysNo, counter := range stats.Counters {
+		sysName, found := syscallNames[int(sysNo)]
+		if !found {
+			sysName = fmt.Sprintf("unknown_%d", sysNo)
+		}
+		visitor.OnRegistryStart()
+		visitor.OnKey("syscall")
+		visitor.OnRegistryStart()
+		visitor.OnKey(sysName)
+		visitor.OnKey("calls")
+		visitor.OnInt(int64(counter.NumCalls))
+		visitor.OnKey("time")
+		visitor.OnInt(int64(counter.TimeIn))
+		visitor.OnKey("time_per_call")
+		visitor.OnInt(int64(counter.PerCall()))
+		visitor.OnRegistryFinished()
+		visitor.OnRegistryFinished()
+	}
 }

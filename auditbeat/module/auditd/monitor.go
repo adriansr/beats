@@ -17,6 +17,7 @@ type Monitor interface {
 type MonitorRegistry struct {
 	sync.Mutex
 	constructor func() Monitor
+	instance    Monitor
 }
 
 var SyscallMonitor MonitorRegistry
@@ -24,7 +25,10 @@ var SyscallMonitor MonitorRegistry
 func (reg *MonitorRegistry) Get() Monitor {
 	reg.Lock()
 	defer reg.Unlock()
-	return reg.constructor()
+	if reg.instance == nil {
+		reg.instance = reg.constructor()
+	}
+	return reg.instance
 }
 
 var ErrMonitorAlreadyRegistered = errors.New("monitor already registered")
