@@ -193,16 +193,7 @@ func _EvtClose(object EvtHandle) (err error) {
 }
 
 func _EvtSeek(resultSet EvtHandle, position int64, bookmark EvtHandle, timeout uint32, flags uint32) (success bool, err error) {
-	var (
-		r0 uintptr
-		e1 syscall.Errno
-	)
-	if unsafe.Sizeof(uintptr(0)) == unsafe.Sizeof(int64(0)) {
-		r0, _, e1 = syscall.Syscall6(procEvtSeek.Addr(), 5, uintptr(resultSet), uintptr(position), uintptr(bookmark), uintptr(timeout), uintptr(flags), 0)
-	} else {
-		var positionPart [2]uintptr = *(*[2]uintptr)(unsafe.Pointer(&position))
-		r0, _, e1 = syscall.Syscall6(procEvtSeek.Addr(), 6, uintptr(resultSet), positionPart[0], positionPart[1], uintptr(bookmark), uintptr(timeout), uintptr(flags))
-	}
+	r0, _, e1 := syscall.Syscall6(procEvtSeek.Addr(), 5, uintptr(resultSet), uintptr(position), uintptr(bookmark), uintptr(timeout), uintptr(flags), 0)
 	success = r0 != 0
 	if !success {
 		if e1 != 0 {
