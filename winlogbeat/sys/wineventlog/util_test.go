@@ -26,6 +26,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/andrewkroh/sys/windows/registry"
+
 	"github.com/andrewkroh/sys/windows/svc/eventlog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows"
@@ -47,6 +49,19 @@ func createLog(t testing.TB) (log *eventlog.Log, tearDown func()) {
 
 	existed, err := eventlog.InstallAsEventCreate(name, source, eventlog.Error|eventlog.Warning|eventlog.Info)
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	// HACK: Set a custom security descriptor in the newly created eventlog to allow unrestricted write access
+	const eventLogKeyName = `SYSTEM\CurrentControlSet\Services\EventLog\` + name
+	const customSD = `O:BAG:SYD:(A;; 0xf0007 ;;;AN)(A;; 0xf0007 ;;;BG)(A;; 0xf0007 ;;;SY)(A;; 0x5 ;;;BA)(A;; 0x7 ;;;SO)(A;; 0x3 ;;;IU)(A;; 0x2 ;;;BA)(A;; 0x2 ;;;LS)(A;; 0x2 ;;;NS)`
+	hKey, err := registry.OpenKey(registry.LOCAL_MACHINE, eventLogKeyName, registry.ALL_ACCESS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hKey.Close()
+
+	if err = hKey.SetExpandStringValue("CustomSD", customSD); err != nil {
 		t.Fatal(err)
 	}
 
