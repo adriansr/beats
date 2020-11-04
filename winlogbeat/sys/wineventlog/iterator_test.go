@@ -20,6 +20,7 @@
 package wineventlog
 
 import (
+	"os"
 	"strconv"
 	"testing"
 
@@ -30,8 +31,21 @@ import (
 	"github.com/elastic/beats/v7/libbeat/logp"
 )
 
+func isAdmin() bool {
+	f, err := os.Open("\\\\.\\PHYSICALDRIVE0")
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	return true
+}
+
 func TestEventIterator(t *testing.T) {
 	logp.TestingSetup()
+
+	if !isAdmin() {
+		t.Skip("skipping due to lack of permissions")
+	}
 
 	writer, tearDown := createLog(t)
 	defer tearDown()
