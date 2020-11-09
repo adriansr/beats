@@ -27,12 +27,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/andrewkroh/sys/windows/registry"
 	"github.com/andrewkroh/sys/windows/svc/eventlog"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/elastic/beats/v7/libbeat/common"
-	"github.com/elastic/beats/v7/libbeat/logp"
 	"github.com/elastic/beats/v7/winlogbeat/checkpoint"
 	"github.com/elastic/beats/v7/winlogbeat/sys/wineventlog"
 )
@@ -46,7 +44,6 @@ func TestWindowsEventLogAPIExperimental(t *testing.T) {
 }
 
 func testWindowsEventLog(t *testing.T, api string) {
-	logp.TestingSetup()
 	writer, teardown := createLog(t)
 	defer teardown()
 
@@ -54,9 +51,8 @@ func testWindowsEventLog(t *testing.T, api string) {
 
 	// Publish large test messages.
 	const totalEvents = 1000
-	const maxRandomBytes = 256 // Careful: Under some versions (Win10), events are silently ignored when this value is too big.
 	for i := 0; i < totalEvents; i++ {
-		err := writer.Report(eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(maxRandomBytes)})
+		err := writer.Report(eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(31800)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,21 +143,6 @@ func createLog(t testing.TB, messageFiles ...string) (log *eventlog.Log, tearDow
 
 	existed, err := eventlog.Install(name, source, messageFile, true, eventlog.Error|eventlog.Warning|eventlog.Info)
 	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Set a custom security descriptor in the newly created eventlog to allow unrestricted write access
-	// This is to prevent "Access is denied" errors when writing to the event log.
-	// Source: https://docs.microsoft.com/en-us/troubleshoot/aspnet/fail-write-event-log
-	const eventLogKeyName = `SYSTEM\CurrentControlSet\Services\EventLog\` + name
-	const customSD = `O:BAG:SYD:(A;; 0xf0007 ;;;AN)(A;; 0xf0007 ;;;BG)(A;; 0xf0007 ;;;SY)(A;; 0x5 ;;;BA)(A;; 0x7 ;;;SO)(A;; 0x3 ;;;IU)(A;; 0x2 ;;;BA)(A;; 0x2 ;;;LS)(A;; 0x2 ;;;NS)`
-	hKey, err := registry.OpenKey(registry.LOCAL_MACHINE, eventLogKeyName, registry.ALL_ACCESS)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer hKey.Close()
-
-	if err = hKey.SetExpandStringValue("CustomSD", customSD); err != nil {
 		t.Fatal(err)
 	}
 
