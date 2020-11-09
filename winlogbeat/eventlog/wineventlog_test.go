@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/andrewkroh/sys/windows/registry"
 	"github.com/andrewkroh/sys/windows/svc/eventlog"
@@ -176,6 +177,16 @@ func createLog(t testing.TB, messageFiles ...string) (log *eventlog.Log, tearDow
 		eventlog.RemoveSource(name, source)
 		eventlog.RemoveProvider(name)
 		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(time.Second * 15)
+	for time.Now().Before(deadline) {
+		if err = log.Info(1234, "test"); err == nil {
+			if err = wineventlog.EvtClearLog(wineventlog.NilHandle, name, ""); err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
 	}
 
 	tearDown = func() {
