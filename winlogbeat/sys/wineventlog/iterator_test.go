@@ -22,6 +22,7 @@ package wineventlog
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -37,8 +38,13 @@ func TestEventIterator(t *testing.T) {
 	defer tearDown()
 
 	const eventCount = 1500
+	deadline := time.Now().Add(15 * time.Second)
 	for i := 0; i < eventCount; i++ {
 		if err := writer.Info(1, "Test message "+strconv.Itoa(i+1)); err != nil {
+			if time.Now().Before(deadline) {
+				i--
+				continue
+			}
 			t.Fatal(err)
 		}
 	}
