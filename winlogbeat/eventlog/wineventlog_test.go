@@ -165,11 +165,11 @@ func createLog(t testing.TB, messageFiles ...string) (log *eventlog.Log, tearDow
 		t.Fatal(err)
 	}
 
-	//if existed {
-	if err = wineventlog.EvtClearLog(wineventlog.NilHandle, name, ""); err != nil {
-		t.Fatal(err)
+	if existed {
+		if err = wineventlog.EvtClearLog(wineventlog.NilHandle, name, ""); err != nil {
+			t.Fatal(err)
+		}
 	}
-	//}
 
 	log, err = eventlog.Open(source)
 	if err != nil {
