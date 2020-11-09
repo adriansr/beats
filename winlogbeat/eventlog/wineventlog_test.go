@@ -166,7 +166,9 @@ func createLog(t testing.TB, messageFiles ...string) (log *eventlog.Log, tearDow
 	}
 
 	if existed {
-		wineventlog.EvtClearLog(wineventlog.NilHandle, name, "")
+		if err = wineventlog.EvtClearLog(wineventlog.NilHandle, name, ""); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	log, err = eventlog.Open(source)
