@@ -52,9 +52,10 @@ func testWindowsEventLog(t *testing.T, api string) {
 
 	// Publish large test messages.
 	const totalEvents = 1000
+	const maxMsgSize = 256
 	deadline := time.Now().Add(time.Second * 15)
 	for i := 0; i < totalEvents; i++ {
-		err := writer.Report(eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(31800)})
+		err := writer.Report(eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(maxMsgSize)})
 		if err != nil {
 			// Ignore errors and retry until the log is writable.
 			if time.Now().Before(deadline) {
