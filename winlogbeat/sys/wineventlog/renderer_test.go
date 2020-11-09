@@ -205,9 +205,17 @@ func BenchmarkRenderer(b *testing.B) {
 	defer teardown()
 
 	const totalEvents = 1000000
+	deadline := time.Now().Add(time.Minute)
 	msg := strings.Repeat("Hello world! ", 21)
 	for i := 0; i < totalEvents; i++ {
-		writer.Info(10, msg)
+		if err := writer.Info(10, msg); err != nil {
+			// Ignore error and retry until log is writable.
+			if time.Now().Before(deadline) {
+				i--
+				continue
+			}
+			b.Fatal(err)
+		}
 	}
 
 	setup := func() (*EventIterator, *Renderer) {

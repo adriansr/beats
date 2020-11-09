@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/andrewkroh/sys/windows/svc/eventlog"
 	"github.com/stretchr/testify/assert"
@@ -51,9 +52,15 @@ func testWindowsEventLog(t *testing.T, api string) {
 
 	// Publish large test messages.
 	const totalEvents = 1000
+	deadline := time.Now().Add(time.Second * 15)
 	for i := 0; i < totalEvents; i++ {
 		err := writer.Report(eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(31800)})
 		if err != nil {
+			// Ignore errors and retry until the log is writable.
+			if time.Now().Before(deadline) {
+				i--
+				continue
+			}
 			t.Fatal(err)
 		}
 	}
