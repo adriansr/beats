@@ -56,9 +56,14 @@ func testWindowsEventLog(t *testing.T, api string) {
 	// Publish large test messages.
 	const totalEvents = 1000
 	const maxRandomBytes = 256 // Careful: Under some versions (Win10), events are silently ignored when this value is too big.
+	deadline := time.Now().Add(time.Second * 15)
 	for i := 0; i < totalEvents; i++ {
 		err := writer.Report(eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(maxRandomBytes)})
 		if err != nil {
+			if time.Now().Before(deadline) {
+				i--
+				continue
+			}
 			t.Fatal(err)
 		}
 	}
