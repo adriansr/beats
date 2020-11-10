@@ -20,6 +20,8 @@ var ignoreFields = []string{
 	"message",
 	"winlog.opcode",
 	"winlog.task",
+
+	// The following fields are not present in Windows 7
 	"winlog.user.type",
 	"winlog.user.name",
 	"winlog.user.domain",
