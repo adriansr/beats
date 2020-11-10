@@ -20,6 +20,9 @@ var ignoreFields = []string{
 	"message",
 	"winlog.opcode",
 	"winlog.task",
+	"winlog.user.type",
+	"winlog.user.name",
+	"winlog.user.domain",
 }
 
 func TestSysmon(t *testing.T) {
