@@ -17,6 +17,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/andrewkroh/sys/windows"
+
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/stretchr/testify/assert"
 
@@ -123,7 +125,12 @@ func testPipeline(t testing.TB, evtx string, pipeline string, p *params) {
 
 			// Enrichment based on user.identifier varies based on the host
 			// where this is execute so remove it.
-			if userType, _ := record.GetValue("winlog.user.type"); userType != "Well Known Group" {
+			isWin7 := false
+			if verCode, err := windows.GetVersion(); err == nil {
+				// Windows 7 is version 6.1
+				isWin7 = (verCode & 0xFFFF) == 0x0106
+			}
+			if userType, _ := record.GetValue("winlog.user.type"); userType != "Well Known Group" || isWin7 {
 				record.Delete("winlog.user.type")
 				record.Delete("winlog.user.name")
 				record.Delete("winlog.user.domain")
