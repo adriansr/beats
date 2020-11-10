@@ -135,6 +135,7 @@ func testPipeline(t testing.TB, evtx string, pipeline string, p *params) {
 				record.Delete("winlog.user.name")
 				record.Delete("winlog.user.domain")
 			}
+			t.Logf("isWin7: %v", isWin7)
 
 			evt, err := processor.Run(&record)
 			if err != nil {
