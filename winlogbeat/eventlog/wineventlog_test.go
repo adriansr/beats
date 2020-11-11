@@ -51,7 +51,7 @@ func testWindowsEventLog(t *testing.T, api string) {
 	setLogSize(t, providerName, gigabyte)
 
 	// Publish large test messages.
-	const messageSize = 256 // Originally 31800, such a large value resulted in an empty eventlog under Win10.
+	const messageSize = 31800 // 256 // Originally 31800, such a large value resulted in an empty eventlog under Win10.
 	const totalEvents = 1000
 	for i := 0; i < totalEvents; i++ {
 		safeWriteEvent(t, writer, eventlog.Info, uint32(i%1000), []string{strconv.Itoa(i) + " " + randomSentence(messageSize)})
