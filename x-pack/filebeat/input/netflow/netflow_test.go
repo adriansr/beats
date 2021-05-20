@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -184,6 +185,8 @@ func getFlowsFromDat(t testing.TB, name string, testCase TestCase) TestResult {
 			t.Fatal(err)
 		}
 		data := bytes.NewBuffer(dat)
+		clone := make([]byte, len(dat))
+		copy(clone, dat)
 		var packetCount int
 		for packetCount = 0; data.Len() > 0; packetCount++ {
 			startLen := data.Len()
@@ -193,8 +196,16 @@ func getFlowsFromDat(t testing.TB, name string, testCase TestCase) TestResult {
 				break
 			}
 			if data.Len() == startLen {
-				t.Log("Loop detected")
+				panic("Loop detected")
 			}
+			used := startLen - data.Len()
+			err = ioutil.WriteFile(
+				fmt.Sprintf("decoder/corpus/%s_%d.dat", f, packetCount),
+				clone[:used], 0666)
+			if err != nil {
+				panic(err)
+			}
+			clone = clone[used:]
 			ev := make([]beat.Event, len(flows))
 			for i := range flows {
 				flow := toBeatEvent(flows[i], []string{"private"})
@@ -232,12 +243,21 @@ func getFlowsFromPCAP(t testing.TB, name, pcapFile string) TestResult {
 	var events []beat.Event
 
 	// Process packets in PCAP and get flow records.
+	packetCount := 0
+	fileName := filepath.Base(pcapFile)
 	for packet := range packetSource.Packets() {
 		remoteAddr := &net.UDPAddr{
 			IP:   net.ParseIP(packet.NetworkLayer().NetworkFlow().Src().String()),
 			Port: int(binary.BigEndian.Uint16(packet.TransportLayer().TransportFlow().Src().Raw())),
 		}
 		payloadData := packet.TransportLayer().LayerPayload()
+		err = ioutil.WriteFile(
+			fmt.Sprintf("decoder/corpus/%s_%d.dat", fileName, packetCount),
+			payloadData, 0666)
+		if err != nil {
+			panic(err)
+		}
+		packetCount++
 		flows, err := decoder.Read(bytes.NewBuffer(payloadData), remoteAddr)
 		if err != nil {
 			return TestResult{Name: name, Error: err.Error(), Flows: events}
