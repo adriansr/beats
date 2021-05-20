@@ -12,20 +12,25 @@ import (
 
 var initOnce sync.Once
 var decoder *Decoder
-var source net.Addr
+var source = net.TCPAddr{
+	IP:   net.ParseIP("127.0.0.1"),
+	Port: 1234,
+}
 
 func Fuzz(data []byte) int {
 	initOnce.Do(func() {
 		var err error
-		cfg := config.Defaults()
-		cfg.WithExpiration(time.Duration(0)).
+		def := config.Defaults()
+		var cfg = &def
+		cfg = cfg.WithExpiration(time.Duration(0)).
 			WithLogOutput(os.Stderr).
-			WithSequenceResetEnabled(false)
-		if decoder, err = NewDecoder(&cfg); err != nil {
+			WithSequenceResetEnabled(false).
+			WithProtocols("v9", "ipfix")
+		if decoder, err = NewDecoder(cfg); err != nil {
 			panic(err)
 		}
 	})
-	if _, err := decoder.Read(bytes.NewBuffer(data), source); err != nil {
+	if _, err := decoder.Read(bytes.NewBuffer(data), &source); err != nil {
 		return 0
 	}
 	return 1
