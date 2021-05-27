@@ -1,216 +1,343 @@
-###################### Auditbeat Configuration Example #########################
+###################### Auditbeat Configuration #########################
 
-# This is an example configuration file highlighting only the most common
-# options. The auditbeat.reference.yml file from the same directory contains all
-# the supported options with more comments. You can use it as a reference.
-#
 # You can find the full configuration reference here:
 # https://www.elastic.co/guide/en/beats/auditbeat/index.html
+#
+# Other references,
+# - https://github.com/mtkirby/audisp-simplify
+# - CIS Ubuntu 16.04 LTS Benchmark
+# - CIS Docker CE Benchmark
 
-# =========================== Modules configuration ============================
+#============================  Config Reloading ================================
+auditbeat.config.modules:
+  path: ${path.config}/conf.d/*.yml
+  reload.period: 600s
+  reload.enabled: true
+
+auditbeat.max_start_delay: 0s
+
+#==========================  Modules configuration =============================
 auditbeat.modules:
-
 - module: auditd
-  # Load audit rules from separate files. Same format as audit.rules(7).
-  audit_rule_files: [ '${path.config}/audit.rules.d/*.conf' ]
+  resolve_ids: true
+  failure_mode: log
+  backlog_limit: 8192
+  rate_limit: 0
+  include_raw_message: false
+  include_warnings: false
+  backpressure_strategy: both
   audit_rules: |
-    ## Define audit rules here.
-    ## Create file watches (-w) or syscall audits (-a or -A). Uncomment these
-    ## examples or add your own rules.
-
     ## If you are on a 64 bit platform, everything should be running
     ## in 64 bit mode. This rule will detect any use of the 32 bit syscalls
     ## because this might be a sign of someone exploiting a hole in the 32
     ## bit API.
-    #-a always,exit -F arch=b32 -S all -F key=32bit-abi
+    -a always,exit -F arch=b32 -S all -F key=32bit-abi
 
     ## Executions.
-    #-a always,exit -F arch=b64 -S execve,execveat -k exec
+    -a always,exit -F arch=b64 -S execve,execveat -k exec
+
+    # BPF stuff.
+    -a always,exit -F arch=b64 -S bpf -k bpf
 
     ## External access (warning: these can be expensive to audit).
-    #-a always,exit -F arch=b64 -S accept,bind,connect -F key=external-access
+    # -a always,exit -F arch=b64 -S accept,bind,connect,listen -F key=external-access
 
     ## Identity changes.
-    #-w /etc/group -p wa -k identity
-    #-w /etc/passwd -p wa -k identity
-    #-w /etc/gshadow -p wa -k identity
+    -w /etc/group -p wa -k identity
+    -w /etc/passwd -p wa -k identity
+    -w /etc/gshadow -p wa -k identity
 
     ## Unauthorized access attempts.
-    #-a always,exit -F arch=b64 -S open,creat,truncate,ftruncate,openat,open_by_handle_at -F exit=-EACCES -k access
-    #-a always,exit -F arch=b64 -S open,creat,truncate,ftruncate,openat,open_by_handle_at -F exit=-EPERM -k access
+    -a always,exit -F arch=b64 -S open,creat,truncate,ftruncate,openat,open_by_handle_at -F exit=-EACCES -k access
+    -a always,exit -F arch=b64 -S open,creat,truncate,ftruncate,openat,open_by_handle_at -F exit=-EPERM -k access
 
-- module: file_integrity
-  paths:
-  - /bin
-  - /usr/bin
-  - /sbin
-  - /usr/sbin
-  - /etc
+    # CIS recommendations (4.1.x)
 
+    # Ensure events that modify date and time information are collected
+    -a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
+    -a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
+    -a always,exit -F arch=b64 -S clock_settime -k time-change
+    -a always,exit -F arch=b32 -S clock_settime -k time-change
 
-# ======================= Elasticsearch template setting =======================
-setup.template.settings:
-  index.number_of_shards: 1
-  #index.codec: best_compression
-  #_source.enabled: false
+    # Ensure events that modify user/group information are collected
+    -w /etc/localtime -p wa -k time-change
+    -w /etc/shadow -p wa -k identity
+    -w /etc/security/opasswd -p wa -k identity
 
+    # Ensure events that modify the system's network environment are collected
+    -a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
+    -a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
+    -w /etc/issue -p wa -k system-locale
+    -w /etc/issue.net -p wa -k system-locale
+    -w /etc/hosts -p wa -k system-locale
 
-# ================================== General ===================================
+    # Ensure events that modify the system's Mandatory Access Controls are collected
+    -w /etc/apparmor/ -p wa -k MAC-policy
+    -w /etc/apparmor.d/ -p wa -k MAC-policy
 
-# The name of the shipper that publishes the network data. It can be used to group
-# all the transactions sent by a single shipper in the web interface.
-#name:
+    # Ensure login and logout events are collected
+    -w /var/log/faillog -p wa -k logins
+    -w /var/log/lastlog -p wa -k logins
+    -w /var/log/tallylog -p wa -k logins
 
-# The tags of the shipper are included in their own field with each
-# transaction published.
-#tags: ["service-X", "web-tier"]
+    #  Ensure session initiation information is collected
+    -w /var/run/utmp -p wa -k session
+    -w /var/log/wtmp -p wa -k logins
+    -w /var/log/btmp -p wa -k logins
 
-# Optional fields that you can specify to add additional information to the
-# output.
-#fields:
-#  env: staging
+    # Ensure discretionary access control permission modification events are collected
+    -a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
 
-# ================================= Dashboards =================================
-# These settings control loading the sample dashboards to the Kibana index. Loading
-# the dashboards is disabled by default and can be enabled either by setting the
-# options here or by using the `setup` command.
-#setup.dashboards.enabled: false
+    # Ensure successful file system mounts are collected
+    -a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+    -a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
 
-# The URL from where to download the dashboards archive. By default this URL
-# has a value which is computed based on the Beat name and version. For released
-# versions, this URL points to the dashboard archive on the artifacts.elastic.co
-# website.
-#setup.dashboards.url:
+    # Ensure file deletion events by users are collected
+    # NOTE: These rules are very noisy when Ansible is operating upon the host
+    # node. Configure "drop_event" before enabling these rules!
+    #
+    # -a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+    # -a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
 
-# =================================== Kibana ===================================
+    # Ensure changes to system administration scope (sudoers) is collected
+    -w /etc/sudoers -p wa -k scope
+    -w /etc/sudoers.d/ -p wa -k scope
 
-# Starting with Beats version 6.0.0, the dashboards are loaded via the Kibana API.
-# This requires a Kibana endpoint configuration.
-setup.kibana:
+    # Ensure system administrator actions (sudolog) are collected
+    -w /var/log/sudo.log -p wa -k actions
 
-  # Kibana Host
-  # Scheme and port can be left out and will be set to the default (http and 5601)
-  # In case you specify and additional path, the scheme is required: http://localhost:5601/path
-  # IPv6 addresses should always be defined as: https://[2001:db8::1]:5601
-  #host: "localhost:5601"
+    # Ensure kernel module loading and unloading is collected
+    -w /sbin/insmod -p x -k modules
+    -w /sbin/rmmod -p x -k modules
+    -w /sbin/modprobe -p x -k modules
+    -a always,exit -F arch=b64 -S init_module -S delete_module -k modules
 
-  # Kibana Space ID
-  # ID of the Kibana Space into which the dashboards should be loaded. By default,
-  # the Default Space will be used.
-  #space.id:
+    # Are these noisy in production with various beats running?
+    -a always,exit -F arch=b32 -S ptrace -k PTRACE-tracing
+    -a always,exit -F arch=b64 -S ptrace -k PTRACE-tracing
+    -a always,exit -F arch=b32 -S ptrace -F a0=0x4 -k PTRACE-code-injection
+    -a always,exit -F arch=b64 -S ptrace -F a0=0x4 -k PTRACE-code-injection
+    -a always,exit -F arch=b32 -S ptrace -F a0=0x5 -k PTRACE-data-injection
+    -a always,exit -F arch=b64 -S ptrace -F a0=0x5 -k PTRACE-data-injection
+    -a always,exit -F arch=b32 -S ptrace -F a0=0x6 -k PTRACE-register-injection
+    -a always,exit -F arch=b64 -S ptrace -F a0=0x6 -k PTRACE-register-injection
 
-# =============================== Elastic Cloud ================================
+    # CIS Docker CE Benchmark 1.1.0
+    -w /usr/bin/docker -k docker
+    -w /etc/docker -k docker
+    -w /lib/systemd/system/docker.service -k docker
+    -w /lib/systemd/system/docker.socket -k docker
+    -w /etc/default/docker -k docker
+    -w /etc/docker/key.json -k docker
+    -w /usr/bin/docker-containerd -k docker
+    -w /usr/bin/docker-runc -k docker
+    -w /usr/sbin/runc -k docker
+    -w /usr/bin/containerd -k docker
 
-# These settings simplify using Auditbeat with the Elastic Cloud (https://cloud.elastic.co/).
+#================================ General =====================================
 
-# The cloud.id setting overwrites the `output.elasticsearch.hosts` and
-# `setup.kibana.host` options.
-# You can find the `cloud.id` in the Elastic Cloud web UI.
-#cloud.id:
+fields_under_root: true
 
-# The cloud.auth setting overwrites the `output.elasticsearch.username` and
-# `output.elasticsearch.password` settings. The format is `<user>:<pass>`.
-#cloud.auth:
-
-# ================================== Outputs ===================================
-
-# Configure what output to use when sending the data collected by the beat.
-
-# ---------------------------- Elasticsearch Output ----------------------------
-output.elasticsearch:
-  # Array of hosts to connect to.
-  hosts: ["localhost:9200"]
-
-  # Protocol - either `http` (default) or `https`.
-  #protocol: "https"
-
-  # Authentication credentials - either API key or username/password.
-  #api_key: "id:api_key"
-  #username: "elastic"
-  #password: "changeme"
-
-# ------------------------------ Logstash Output -------------------------------
-#output.logstash:
-  # The Logstash hosts
-  #hosts: ["localhost:5044"]
-
-  # Optional SSL. By default is off.
-  # List of root certificates for HTTPS server verifications
-  #ssl.certificate_authorities: ["/etc/pki/root/ca.pem"]
-
-  # Certificate for SSL client authentication
-  #ssl.certificate: "/etc/pki/client/cert.pem"
-
-  # Client Certificate Key
-  #ssl.key: "/etc/pki/client/cert.key"
-
-# ================================= Processors =================================
-
-# Configure processors to enhance or manipulate events generated by the beat.
+#================================ Processors ===================================
 
 processors:
-  - add_host_metadata: ~
-  - add_cloud_metadata: ~
-  - add_docker_metadata: ~
+- add_cloud_metadata: ~
+- add_process_metadata:
+    match_pids: [process.ppid]
+    target: process.parent
+- add_docker_metadata: ~  # match_fields stuff doesn't seem to be required to get "container.name" stuff working
 
+# Enrich events before dropping container.labels
+- rename:
+    fields:
+      - from: container.labels.org_label-schema_version
+        to: ece.version
+    ignore_missing: true
 
-# ================================== Logging ===================================
+- rename:
+    when:
+      has_fields: ['container.labels.co_elastic_cloud_allocator_id']
+    fields:
+      - from: container.labels.co_elastic_cloud_allocator_type
+        to: service.name
+      - from: container.labels.co_elastic_cloud_allocator_cluster_id
+        to: service.id
+      - from: container.labels.co_elastic_cloud_allocator_instance_id
+        to: service.node.name
+      - from: container.labels.co_elastic_cloud_allocator_type_version
+        to: service.version
+    ignore_missing: true
 
-# Sets log level. The default log level is info.
-# Available log levels are: error, warning, info, debug
-#logging.level: debug
+- rename:
+    when:
+      has_fields: ['container.labels.co_elastic_cloud_runner_id']
+    fields:
+      - from: container.labels.co_elastic_cloud_runner_role
+        to: ece.role
+    ignore_missing: true
 
-# At debug level, you can selectively enable logging only for some components.
-# To enable all selectors use ["*"]. Examples of other selectors are "beat",
-# "publisher", "service".
-#logging.selectors: ["*"]
+- drop_fields:
+    fields: ["container.labels"]
+    ignore_missing: true
 
-# ============================= X-Pack Monitoring ==============================
-# Auditbeat can export internal metrics to a central Elasticsearch monitoring
-# cluster.  This requires xpack monitoring to be enabled in Elasticsearch.  The
-# reporting is disabled by default.
+# Drop AVC noise generated by the combination of AppArmor and Metricbeat
+# From https://github.com/elastic/beats/issues/6932#issuecomment-385068220
+- drop_event.when:
+    and:
+    - equals.event.action: violated-apparmor-policy
+    - equals.process.name: metricbeat
+    - equals.auditd.data.operation: ptrace
 
-# Set to true to enable the monitoring reporter.
-#monitoring.enabled: false
+- drop_event.when:
+    and:
+    - equals.process.executable: "/elastic_cloud_apps/metricbeat/metricbeat"
+    - equals.process.parent.process.executable: "/usr/bin/runsv"
 
-# Sets the UUID of the Elasticsearch cluster under which monitoring data for this
-# Auditbeat instance will appear in the Stack Monitoring UI. If output.elasticsearch
-# is enabled, the UUID is derived from the Elasticsearch cluster referenced by output.elasticsearch.
-#monitoring.cluster_uuid:
+# ansible playbboks generate a lot of events on rundeck
+# playbook runs are track with logs
+- drop_event.when:
+    and:
+    - equals.process.name: "ansible-playboo"
+    - regexp.process.executable: "/var/lib/rundeck/.pyenv/versions/.*/bin/python.*"
+- drop_event.when:
+    and:
+    - equals.process.parent.process.name: "ansible-playboo"
+    - regexp.process.parent.process.executable: "/var/lib/rundeck/.pyenv/versions/.*/bin/python.*"
 
-# Uncomment to send the metrics to Elasticsearch. Most settings from the
-# Elasticsearch output are accepted here as well.
-# Note that the settings should point to your Elasticsearch *monitoring* cluster.
-# Any setting that is not set is automatically inherited from the Elasticsearch
-# output configuration, so if you have the Elasticsearch output configured such
-# that it is pointing to your Elasticsearch monitoring cluster, you can simply
-# uncomment the following line.
-#monitoring.elasticsearch:
+# Drop some elastic containers entrypoint
+- drop_event.when:
+    and:
+    - equals.process.parent.process.title: "runsv beats-runner"
+    - equals.process.title: "/usr/bin/env bash ./run"
 
-# ============================== Instrumentation ===============================
+- drop_event.when:
+    and:
+    - equals.process.title: "/bin/bash -e ./run"
+    - or:
+      - equals.process.parent.process.title: "runsv stunnel"
+      - equals.process.parent.process.title: "runsv haproxy"
 
-# Instrumentation support for the auditbeat.
-#instrumentation:
-    # Set to true to enable instrumentation of auditbeat.
-    #enabled: false
+- drop_event.when:
+    and:
+    - equals.process.title: "/bin/bash ./run"
+    - or:
+      - equals.process.parent.process.title: "runsv metrics-intake"
+      - equals.process.parent.process.title: "runsv proxy"
+      - equals.process.parent.process.title: "runsv allocator"
+      - equals.process.parent.process.title: "runsv constructor"
+      - equals.process.parent.process.title: "runsv metricbeat"
+      - equals.process.parent.process.title: "runsv zookeeper"
+      - equals.process.parent.process.title: "runsv filebeat"
 
-    # Environment in which auditbeat is running on (eg: staging, production, etc.)
-    #environment: ""
+- drop_event.when:
+    and:
+    - equals.process.parent.process.title: "runsv filebeat"
+    - equals.process.title: "./filebeat -c /app/managed/filebeat/filebeat.yml -path.data /app/data/filebeat"
 
-    # APM Server hosts to report instrumentation results to.
-    #hosts:
-    #  - http://localhost:8200
+# Drop frequent process
+- drop_event.when:
+    and:
+    - equals.process.executable: "/usr/sbin/xfs_quota"
+    - equals.process.parent.process.name: "java"
+    - equals.process.working_directory: "/elastic_cloud_apps/allocator"
 
-    # API Key for the APM Server(s).
-    # If api_key is set then secret_token will be ignored.
-    #api_key:
+- drop_event.when:
+    or:
+    - equals.process.title: "docker-init --version"
+    - equals.process.title: "runc --version"
 
-    # Secret token for the APM Server(s).
-    #secret_token:
+- drop_event.when:
+    or:
+    - equals.process.title: "/bin/sh /usr/lib/sysstat/debian-sa1 1 1"
+    - contains.process.title: "/bin/sh -c command -v debian-sa1"
 
+- drop_event.when:
+    or:
+    - equals.auditd.summary.object.primary: "/sbin/ifquery"
+    - equals.process.executable: "/bin/sleep"
+    - equals.process.title: "cat /proc/net/dev"
+    - equals.process.title: "iptables --version"
+    - equals.process.title: "/bin/sh /bin/egrep .*blank.*"
+    - equals.process.title: "mkdir -p /run/network"
+    - equals.process.title: "runc init"
+    - equals.process.title: "sed -n -es/^bridge[_-]ports: //p"
+    - equals.process.title: "sed -n -es/^vlan[_-]raw[_-]device: //p"
+    - equals.process.title: "/usr/bin/python3 /sbin/setuser ubuntu found-secret-client --from-env --exec -- python3 create-stunnel-config.py"
+    - equals.process.title: "sh -c uname -p 2> /dev/null"
+    - equals.process.title: "/bin/sh /usr/bin/which ifquery"
+    - equals.process.title: "/bin/sh -e /lib/udev/ifupdown-hotplug"
+    - equals.process.title: "/bin/sh /sbin/ldconfig -p"
+    - equals.process.title: "/bin/sh /lib/resolvconf/net-interface-handler start"
+    - equals.process.title: "/bin/sh /lib/resolvconf/net-interface-handler stop"
+    - equals.process.title: "/bin/sh /lib/udev/vlan-network-interface UDEV"
+    - equals.process.title: "/bin/sh /lib/udev/bridge-network-interface"
+    - equals.process.title: "/bin/sh /bin/egrep File|Access"
+    - equals.process.title: "dpkg -S /usr/bin/docker-proxy"
+    - equals.process.title: "dpkg -S /usr/sbin/ntpd"
+    - equals.process.title: "uname -p"
+    - equals.process.title: "/app/metricbeat/metricbeat -e -strict.perms=false -system.hostfs=/hostfs --path.config=/app/config --path.logs=/app/logs --path."
+    - equals.process.title: "/usr/sbin/rsyslogd -n -i/var/run/rsyslogd.pid"
+    - equals.process.title: "xargs -i ls -lLD {}"
+    - equals.process.title: "xargs -i ls -lLd {}"
+    - equals.process.title: "xargs -i ls -alLd {}"
+    - equals.process.title: "xargs -i ls -l {}/.rhosts"
+    - equals.process.title: "date +%s"
+    - equals.process.executable: "/usr/bin/wc"
+    - equals.process.executable: "/usr/local/qualys/cloud-agent/bin/qualys-scan-util"
+    - equals.process.parent.process.title: "/usr/local/qualys/cloud-agent/bin/qualys-cloud-agent"
+    - equals.process.parent.process.executable: "/usr/local/qualys/cloud-agent/bin/qualys-scan-util"
+    - equals.process.parent.process.title: "/usr/bin/python /usr/local/bin/found-secret-client --from-env --exec -- python3 create-stunnel-config.py"
+    - equals.process.parent.process.executable: "/lib/systemd/systemd-udevd"
 
-# ================================= Migration ==================================
+- drop_event.when:
+    and:
+    - equals.process.parent.process.executable: "/elastic_cloud_apps/metricbeat/metricbeat"
+    - equals.process.executable: "/bin/udevadm"
+    - contains.process.title: "/sbin/udevadm info --query=property --name="
 
-# This allows to enable 6.7 migration aliases
-#migration.6_to_7.enabled: true
+# drop healthcheck related events
+- drop_event.when:
+    or:
+    - equals.process.executable: "/usr/bin/basename"
+    - equals.process.executable: "/usr/bin/rev"
+    - equals.process.executable: "/usr/bin/sv"
+    - equals.process.executable: "/usr/bin/cut"
+    - equals.process.title: "/bin/sh -c /healthcheck"
+    - equals.process.title: "/bin/bash /healthcheck"
 
+- drop_event.when:
+    and:
+    - equals.process.parent.process.title: "/bin/bash /healthcheck"
+    - or:
+      - equals.process.executable: "/usr/bin/jq"
+      - equals.process.executable: "/bin/ps"
+
+- drop_event.when:
+    and:
+    - equals.process.executable: "/usr/bin/curl"
+    - equals.ece.role: "rundeck"
+    - contains.process.parent.process.args: "dispatch-script.tmp.sh"
+
+#================================ Outputs =====================================
+#------------------------------- Elastic output -----------------------------------
+output.elasticsearch:
+  enabled: true
+
+  hosts: [ "localhost:9200" ]
+
+#============================== Template =====================================
+setup.template.overwrite: false
+
+#============================== Setup ILM =====================================
+=========================== Queue =================================
+# Settings to cache events to disk in case logstash is unreachable
+queue.disk:
+  max_size: 1GB
+
+#================================ Logging =====================================
+logging.level: warning
