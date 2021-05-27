@@ -49,7 +49,7 @@ const (
 	multicast = "multicast"
 	uidUnset  = "unset"
 
-	lostEventsUpdateInterval        = time.Second * 15
+	lostEventsUpdateInterval        = time.Millisecond * 50
 	maxDefaultStreamBufferConsumers = 4
 )
 
