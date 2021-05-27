@@ -327,14 +327,12 @@ processors:
 #------------------------------- Elastic output -----------------------------------
 output.elasticsearch:
   enabled: true
-
   hosts: [ "localhost:9200" ]
 
 #============================== Template =====================================
 setup.template.overwrite: false
 
 #============================== Setup ILM =====================================
-=========================== Queue =================================
 # Settings to cache events to disk in case logstash is unreachable
 queue.disk:
   max_size: 1GB
