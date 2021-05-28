@@ -20,7 +20,9 @@ func main() {
 		},
 		Data: []byte("XXX HELLO WORLD! XXX"),
 	}
-	if _, err := cli.Netlink.Send(msg); err != nil {
-		fmt.Fprintf(os.Stderr, "Write error: %v", err)
+	for {
+		if _, err := cli.Netlink.Send(msg); err != nil {
+			fmt.Fprintf(os.Stderr, "Write error: %v", err)
+		}
 	}
 }
