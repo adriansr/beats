@@ -8,8 +8,9 @@ import (
 )
 
 func main() {
-	for {
-		cli, err := libaudit.NewAuditClient(os.Stdout)
+	const mod = 1000
+	for i := 0; ; i++ {
+		cli, err := libaudit.NewAuditClient(nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Connect to audit failed: %v\n", err)
 			os.Exit(1)
@@ -19,6 +20,9 @@ func main() {
 		}
 		if err = cli.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "Close: %v\n", err)
+		}
+		if i%mod == 0 {
+			fmt.Printf("- %d\r", i/mod)
 		}
 	}
 }
