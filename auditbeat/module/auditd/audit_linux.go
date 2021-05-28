@@ -416,7 +416,7 @@ func (ms *MetricSet) receiveEvents(done <-chan struct{}) (<-chan []*auparse.Audi
 				}
 				continue
 			}
-			ms.log.Debug("Got audit message: [%d:%v]", raw.Type, raw.Data)
+			ms.log.Debug("Got audit message: [%v:%d:%s]", raw.Type, raw.Type, string(raw.Data))
 			if filterRecordType(raw.Type) {
 				continue
 			}
