@@ -350,11 +350,11 @@ func (ms *MetricSet) initClient() error {
 			return errors.Wrap(err, "failed to enable auditing in the kernel")
 		}
 	}
+	ms.log.Errorf("XXX NOW XXX")
+	time.Sleep(10 * time.Second)
 	if err := ms.client.WaitForPendingACKs(); err != nil {
 		return errors.Wrap(err, "failed to wait for ACKs")
 	}
-	ms.log.Errorf("XXX NOW XXX")
-	time.Sleep(10 * time.Second)
 	if err := ms.client.SetPID(libaudit.WaitForReply); err != nil {
 		if errno, ok := err.(syscall.Errno); ok && errno == syscall.EEXIST && status.PID != 0 {
 			return fmt.Errorf("failed to set audit PID. An audit process is already running (PID %d)", status.PID)
