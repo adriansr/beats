@@ -49,7 +49,7 @@ const (
 	multicast = "multicast"
 	uidUnset  = "unset"
 
-	lostEventsUpdateInterval        = time.Millisecond * 50
+	lostEventsUpdateInterval        = time.Second * 15
 	maxDefaultStreamBufferConsumers = 4
 )
 
@@ -174,7 +174,6 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 				case <-reporter.Done():
 					return
 				case <-timer.C:
-					client.GetStatusAsync(false)
 					if status, err := client.GetStatus(); err == nil {
 						ms.updateKernelLostMetric(status.Lost)
 					} else {
