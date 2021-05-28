@@ -350,8 +350,8 @@ func (ms *MetricSet) initClient() error {
 			return errors.Wrap(err, "failed to enable auditing in the kernel")
 		}
 	}
-	ms.log.Errorf("XXX NOW XXX")
-	time.Sleep(10 * time.Second)
+	//ms.log.Errorf("XXX NOW XXX")
+	//time.Sleep(10 * time.Second)
 	if err := ms.client.WaitForPendingACKs(); err != nil {
 		return errors.Wrap(err, "failed to wait for ACKs")
 	}
