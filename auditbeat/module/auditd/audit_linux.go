@@ -375,8 +375,21 @@ func (ms *MetricSet) initClient() error {
 	}
 
 	if err := ms.client.SetPID(libaudit.WaitForReply); err != nil {
-		if errno, ok := err.(syscall.Errno); ok && errno == syscall.EEXIST && status.PID != 0 {
+		/*if errno, ok := err.(syscall.Errno); ok && errno == syscall.EEXIST && status.PID != 0 {
 			return fmt.Errorf("failed to set audit PID. An audit process is already running (PID %d)", status.PID)
+		}*/
+		if errno, ok := err.(syscall.Errno); ok {
+			switch {
+			case errno == syscall.EEXIST && status.PID != 0:
+				return fmt.Errorf("failed to set audit PID. An audit process is already running (PID %d)", status.PID)
+			case errno == syscall.ENOBUFS:
+				closeAuditClient(ms.client)
+				if ms.client, err = newAuditClient(&ms.config, ms.log); err != nil {
+					return errors.Wrapf(err, "failed to recover from ENOBUFS")
+				}
+				ms.log.Warn("This execution is SPECIAL")
+				return ms.client.SetPID(libaudit.WaitForReply)
+			}
 		}
 		return errors.Wrapf(err, "failed to set audit PID (current audit PID %d)", status.PID)
 	}
