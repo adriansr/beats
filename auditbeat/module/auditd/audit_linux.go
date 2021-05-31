@@ -378,11 +378,12 @@ func (ms *MetricSet) initClient() error {
 		/*if errno, ok := err.(syscall.Errno); ok && errno == syscall.EEXIST && status.PID != 0 {
 			return fmt.Errorf("failed to set audit PID. An audit process is already running (PID %d)", status.PID)
 		}*/
+
 		if errno, ok := err.(syscall.Errno); ok {
 			switch {
 			case errno == syscall.EEXIST && status.PID != 0:
 				return fmt.Errorf("failed to set audit PID. An audit process is already running (PID %d)", status.PID)
-			case errno == syscall.ENOBUFS:
+			case errors.Cause(err) == syscall.ENOBUFS:
 				closeAuditClient(ms.client)
 				if ms.client, err = newAuditClient(&ms.config, ms.log); err != nil {
 					return errors.Wrapf(err, "failed to recover from ENOBUFS")
