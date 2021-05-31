@@ -137,10 +137,29 @@ func newAuditClient(c *Config, log *logp.Logger) (*libaudit.AuditClient, error) 
 	return libaudit.NewAuditClient(nil)
 }
 
+func closeAuditClient(client *libaudit.AuditClient) error {
+	discard := func(bytes []byte) ([]syscall.NetlinkMessage, error) {
+		return nil, nil
+	}
+	go func() {
+		for {
+			_, err := client.Netlink.Receive(true, discard)
+			switch err {
+			case nil, syscall.EINTR:
+			case syscall.EAGAIN:
+				time.Sleep(50 * time.Millisecond)
+			default:
+				return
+			}
+		}
+	}()
+	return client.Close()
+}
+
 // Run initializes the audit client and receives audit messages from the
 // kernel until the reporter's done channel is closed.
 func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
-	defer ms.client.Close()
+	defer closeAuditClient(ms.client)
 
 	if err := ms.addRules(reporter); err != nil {
 		reporter.Error(err)
@@ -164,7 +183,7 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 		go func() {
 			defer func() { // Close the most recently allocated "client" instance.
 				if client != nil {
-					client.Close()
+					closeAuditClient(client)
 				}
 			}()
 			timer := time.NewTicker(lostEventsUpdateInterval)
@@ -178,7 +197,7 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 						ms.updateKernelLostMetric(status.Lost)
 					} else {
 						ms.log.Error("get status request failed:", err)
-						if err = client.Close(); err != nil {
+						if err = closeAuditClient(client); err != nil {
 							ms.log.Errorw("Error closing audit monitoring client", "error", err)
 						}
 						client, err = libaudit.NewAuditClient(nil)
@@ -233,7 +252,7 @@ func (ms *MetricSet) addRules(reporter mb.PushReporterV2) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create audit client for adding rules")
 	}
-	defer client.Close()
+	defer closeAuditClient(client)
 
 	// Don't attempt to change configuration if audit rules are locked (enabled == 2).
 	// Will result in EPERM.
