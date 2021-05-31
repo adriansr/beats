@@ -374,20 +374,26 @@ func (ms *MetricSet) initClient() error {
 		return errors.Wrap(err, "failed to wait for ACKs")
 	}
 
-	if err := ms.client.SetPID(libaudit.WaitForReply); err != nil {
+	const setPIDMaxRetries = 5
+	if err := ms.setPID(setPIDMaxRetries); err != nil {
 		if errno, ok := err.(syscall.Errno); ok && errno == syscall.EEXIST && status.PID != 0 {
 			return fmt.Errorf("failed to set audit PID. An audit process is already running (PID %d)", status.PID)
-		} else if errors.Cause(err) == syscall.ENOBUFS {
-			closeAuditClient(ms.client)
-			if ms.client, err = newAuditClient(&ms.config, ms.log); err != nil {
-				return errors.Wrapf(err, "failed to recover from ENOBUFS")
-			}
-			ms.log.Warn("This execution is SPECIAL")
-			return ms.client.SetPID(libaudit.WaitForReply)
 		}
 		return errors.Wrapf(err, "failed to set audit PID (current audit PID %d)", status.PID)
 	}
 	return nil
+}
+
+func (ms *MetricSet) setPID(retries int) (err error) {
+	if err = ms.client.SetPID(libaudit.WaitForReply); err == nil || errors.Cause(err) != syscall.ENOBUFS || retries == 0 {
+		return err
+	}
+	closeAuditClient(ms.client)
+	if ms.client, err = newAuditClient(&ms.config, ms.log); err != nil {
+		return errors.Wrapf(err, "failed to recover from ENOBUFS")
+	}
+	ms.log.Warn("Recovering from ENOBUFS ...")
+	return ms.setPID(retries - 1)
 }
 
 func (ms *MetricSet) updateKernelLostMetric(lost uint32) {
